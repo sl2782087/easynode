@@ -84,7 +84,7 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.5.1
+release=https://github.com/sl2782087/easynodedeck/releases/download/v0.6.0
 if [[ -z ${DECK_BINARY:-} ]]; then
   asset=easynodedeck-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"
@@ -173,7 +173,7 @@ cat > /etc/systemd/system/easynodedeck-renew.service <<'UNIT'
 Description=Renew EasyNodeDeck TLS certificate
 [Service]
 Type=oneshot
-ExecStart=/opt/easynodedeck-certbot/bin/certbot renew --cert-name easynodedeck --quiet --deploy-hook "/usr/bin/systemctl restart easynodedeck.service"
+ExecStart=/usr/bin/flock /run/easynodedeck-acme.lock /opt/easynodedeck-certbot/bin/certbot renew --cert-name easynodedeck --quiet --deploy-hook "/usr/bin/systemctl restart easynodedeck.service"
 UNIT
 cat > /etc/systemd/system/easynodedeck-renew.timer <<'UNIT'
 [Unit]
@@ -185,9 +185,35 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
+cat > /etc/systemd/system/easynodedeck-domain.socket <<'UNIT'
+[Unit]
+Description=EasyNodeDeck domain configuration socket
+[Socket]
+ListenStream=/run/easynodedeck-domain.sock
+SocketMode=0660
+SocketGroup=easynodedeck
+Accept=yes
+MaxConnections=2
+[Install]
+WantedBy=sockets.target
+UNIT
+cat > /etc/systemd/system/easynodedeck-domain@.service <<'UNIT'
+[Unit]
+Description=Configure the EasyNodeDeck panel domain
+[Service]
+EnvironmentFile=/etc/easynodedeck/panel.env
+ExecStart=/opt/easynodedeck/panel domain-helper
+StandardInput=socket
+StandardOutput=inherit
+StandardError=journal
+UMask=0077
+RuntimeMaxSec=240
+UNIT
+chmod 0644 /etc/systemd/system/easynodedeck-domain{.socket,@.service}
 chmod 0644 /etc/systemd/system/easynodedeck{.service,-renew.service,-renew.timer}
 systemctl daemon-reload
 systemctl enable easynodedeck.service easynodedeck-renew.timer
+systemctl enable --now easynodedeck-domain.socket
 systemctl start easynodedeck-renew.timer
 systemctl restart easynodedeck.service
 curl --noproxy '*' --resolve "$host:443:127.0.0.1" -fsS --retry 5 --retry-connrefused "https://$host/web/" -o /dev/null

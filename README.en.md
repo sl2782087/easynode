@@ -32,7 +32,7 @@ Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. A
 **1. Install the panel.** Run this command on the VPS.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.5.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.0/install.sh)
 ```
 
 Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.
@@ -40,6 +40,10 @@ Press Enter if the suggested public IP is correct, or enter a domain that alread
 **2. Add your first node.** Sign in, open **Nodes → Add node**, select the panel host, give it a name and choose your protocols. When you save, the panel writes the configuration and starts the connections.
 
 **3. Connect a client.** Open **Subscriptions → Create subscription** and select the connections you just added. Paste the URL into Clash Verge Rev on your computer or scan the QR code with Shadowrocket on your iPhone.
+
+### Connect a domain to your panel
+
+Point the A record directly at the panel VPS. If you publish an AAAA record, point it at the same VPS. Allow public TCP 80 and 443. In **Account → Configure domain**, enter the full hostname and select **Verify and enable HTTPS**. After the browser opens the new address, sign in with your existing account and copy the updated links from **Subscriptions** into your clients. The node list continues to show IP addresses.
 
 ## Add another VPS
 

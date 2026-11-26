@@ -119,6 +119,10 @@ function renderPage() {
   $("close").setAttribute("aria-label",t("关闭","Close"));
   renderList();
 }
+function nodeAddress(node) {
+  if (!node.local) return node.host;
+  return node.displayIP || (/^[0-9.]+$/.test(node.host) ? node.host : "") || "—";
+}
 function renderList() {
   const sub=isSubs();
   const stats=sub ? [[subs.length,t("订阅总数","Subscriptions")],[new Set(subs.flatMap(s=>s.lines)).size,t("已选线路","Included lines")],[allLines().length,t("可选线路","Available lines")]]
@@ -126,7 +130,7 @@ function renderList() {
   $("stats").innerHTML=stats.map(([value,label])=>'<div class="stat"><strong>'+value+'</strong><span>'+label+'</span></div>').join("");
   const q=$("search").value.trim().toLowerCase(), filter=$("filter").value;
   const data=(sub?subs:nodes).filter(item=>{
-    if (!(item.name+" "+(item.host||"")).toLowerCase().includes(q)) return false;
+    if (!(item.name+" "+(sub?"":nodeAddress(item))).toLowerCase().includes(q)) return false;
     return sub || !filter || item.online===(filter==="up");
   });
   const headers=sub?[t("订阅名称","Subscription"),t("协议","Protocols"),t("线路","Lines"),t("格式","Format")]:[t("节点名称 / 地址","Node / address"),t("协议","Protocols"),t("状态","Status"),t("部署位置","Location")];
@@ -137,7 +141,7 @@ function renderList() {
     const kind=sub?t("通用订阅","Universal"):item.local?t("本机","Local"):t("远程","Remote");
     const exit=item.network?.addresses[0];
     const summary=exit?[exit.location,exit.organization].filter(Boolean).join(" · "):"";
-    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small>'+(summary?'<small class="network-summary">'+regionFlag(exit.location)+esc(summary)+'</small>':'')+'</div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
+    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):nodeAddress(item))+'</small>'+(summary?'<small class="network-summary">'+regionFlag(exit.location)+esc(summary)+'</small>':'')+'</div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
   }).join("");
   if (!data.length) $("list").insertAdjacentHTML("beforeend",'<p class="empty">'+t("没有符合条件的记录","No matching records")+'</p>');
   $("count").textContent=t("显示 "+data.length+" 项，共 "+(sub?subs:nodes).length+" 项","Showing "+data.length+" of "+(sub?subs:nodes).length);
@@ -353,10 +357,51 @@ function accountHome() {
       <button class="quiet" id="rename">${t("修改用户名","Change username")}</button></div>
     <div class="account-row"><div><small>${t("登录密码","Password")}</small><strong>••••••••</strong></div>
       <button class="quiet" id="rekey">${t("修改密码","Change password")}</button></div>
+    ${live?`<div class="account-row"><div><small>${t("面板地址","Panel address")}</small><strong>${esc(location.hostname)}</strong></div><button class="quiet" id="edit-domain">${t("配置域名","Configure domain")}</button></div>`:""}
     <small>${live?'<button class="quiet" id="logout">'+t("退出登录","Sign out")+'</button>':t("演示账号仅在当前页面生效，刷新后重置。","This demo account resets when you reload the page.")}</small></div>`);
   if(live) $("logout").onclick=()=>saveLive("logout",{},()=>{signedIn=false;loginForm();});
+  if(live) $("edit-domain").onclick=editDomain;
   $("rename").onclick=()=>editAccount(false);
   $("rekey").onclick=()=>editAccount(true);
+}
+function editDomain() {
+  dialog(t("配置面板域名","Configure panel domain"),`<form id="domain-form">
+    <label>${t("域名","Domain")}<input class="field" name="hostname" required maxlength="253" placeholder="panel.example.com" autocapitalize="none" spellcheck="false"></label>
+    <small>${t("先将域名直接解析到面板 VPS，并放行公网 TCP 80 和 443。切换后，请在客户端更新订阅地址。","Point the domain directly to this VPS and allow public TCP 80 and 443. Update the subscription URL in your client after switching.")}</small>
+    <div class="actions"><button class="quiet" type="button" id="domain-back">${t("返回","Back")}</button><button class="primary">${t("验证并启用 HTTPS","Verify and enable HTTPS")}</button></div>
+    <small role="status" id="domain-status"></small></form>`);
+  $("domain-back").onclick=accountHome;
+  $("domain-form").onsubmit=async event=>{
+    event.preventDefault();
+    const form=event.currentTarget, status=$("domain-status");
+    const fields=[...form.querySelectorAll("input,button")];
+    fields.forEach(el=>el.disabled=true);
+    status.textContent=t("正在校验 DNS 并申请证书…","Checking DNS and requesting a certificate…");
+    try {
+      const res=await fetch("/api/domain",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({Host:form.hostname.value.trim()})});
+      if(res.status===401){signedIn=false;loginForm();return;}
+      if(!res.ok) throw Error((await res.text()).trim());
+      const {url,current}=await res.json();
+      if(current){status.textContent=t("此域名的 HTTPS 已启用。","HTTPS is already active for this domain.");return;}
+      const target=new URL(url);
+      status.textContent=t("证书已签发，正在等待新地址上线…","Certificate issued. Waiting for the new address…");
+      for(let attempt=0;attempt<25;attempt++){
+        if(!form.isConnected) return;
+        await new Promise(resolve=>setTimeout(resolve,1200));
+        const ready=await new Promise(resolve=>{
+          const img=new Image(), end=setTimeout(()=>resolve(false),2000);
+          img.onload=()=>{clearTimeout(end);resolve(true);};
+          img.onerror=()=>{clearTimeout(end);resolve(false);};
+          img.referrerPolicy="no-referrer";
+          img.src=target.origin+"/assets/logo.png?check="+Date.now();
+        });
+        if(ready){location.assign(url);return;}
+      }
+      status.textContent=t("此浏览器暂时无法验证新地址。请检查 DNS 后打开：","This browser could not verify the new address. Check DNS, then open ");
+      const link=document.createElement("a");link.href=url;link.textContent=url;status.append(link);
+    }catch(error){status.textContent=error.message;}
+    finally{fields.forEach(el=>el.disabled=false);}
+  };
 }
 async function previewDigest(value) {
   const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));

@@ -32,7 +32,7 @@
 **1. 安装面板。** 在 VPS 上执行下面的命令。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.5.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.0/install.sh)
 ```
 
 提示的公网 IP 正确就按回车，也可以填写已解析到这台 VPS 的域名。安装完成后，终端会打印 HTTPS 地址、用户名和密码。
@@ -40,6 +40,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.5.
 **2. 添加第一个节点。** 浏览器打开面板并登录，在「节点 → 添加节点」选择「本机」，填个容易辨认的名字，勾选协议并保存。面板会生成配置并启动线路。
 
 **3. 在客户端导入。** 打开「订阅 → 创建订阅」，勾选刚才的线路。在电脑的 Clash Verge Rev 中粘贴订阅地址，或用 iPhone 上的 Shadowrocket 扫描二维码。
+
+### 给面板绑定域名
+
+先把域名的 A 记录指向面板 VPS 的公网 IPv4。如果添加了 AAAA 记录，也需指向该机的 IPv6。使用 DNS 直连，放行 TCP 80 和 443。登录「用户中心 → 配置域名」，输入完整域名，点击「验证并启用 HTTPS」。证书签发后页面将打开新地址，用原账号登录，再到「订阅」复制新链接更新客户端。节点列表仍显示 IP。
 
 ## 添加另一台 VPS
 

@@ -156,7 +156,7 @@ cat identity.json
 
 func (a *App) manageRemote(path string, in input) (object, error) {
 	ip, err := netip.ParseAddr(in.Host)
-	if err != nil || !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() || in.Port < 1 || in.Port > 65535 || in.Host == a.host {
+	if err != nil || !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() || in.Port < 1 || in.Port > 65535 || in.Host == a.host || in.Host == a.displayIP {
 		return nil, errors.New("Enter a remote public IPv4 address and SSH port")
 	}
 	if path == "remote/key" {

@@ -31,6 +31,7 @@ var files embed.FS
 type App struct {
 	sync.Mutex
 	dir, host, origin, binary, sni, cert, key string
+	displayIP                                 string
 	ports                                     [3]int
 	state                                     State
 	core                                      *core
@@ -65,6 +66,10 @@ func (a *App) save(s State) error {
 	return e
 }
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "domain-helper" {
+		domainHelper()
+		return
+	}
 	a := &App{dir: env("STATE_DIRECTORY", "/var/lib/easynodedeck"), origin: os.Getenv("PUBLIC_URL"), binary: env("CORE_PATH", "/usr/bin/sing-box"), sni: env("REALITY_SNI", "www.cloudflare.com"), failures: map[string]int{}}
 	if len(os.Args) == 2 && os.Args[1] == "init" {
 		if _, e := os.Stat(filepath.Join(a.dir, "state.json")); !os.IsNotExist(e) {
@@ -86,6 +91,10 @@ func main() {
 		log.Fatal("invalid PUBLIC_URL")
 	}
 	a.host = u.Hostname()
+	a.displayIP = os.Getenv("PANEL_IPV4")
+	if net.ParseIP(a.displayIP) == nil {
+		a.displayIP = panelIP(a.host)
+	}
 	for i, k := range []string{"SS_PORT", "REALITY_PORT", "HY2_PORT"} {
 		v, e := strconv.Atoi(env(k, strconv.Itoa(30443+i)))
 		if e != nil || v < 1024 || v > 65535 {
@@ -241,6 +250,12 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Sign in", 401)
 		return
 	}
+	if path == "domain" {
+		a.Unlock()
+		defer a.Lock()
+		a.bindDomain(w, in.Host)
+		return
+	}
 	if path == "logout" {
 		s := a.state
 		s.Sessions = maps.Clone(s.Sessions)
@@ -354,7 +369,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	nodes := []object{}
 	if n := a.state.Node; n != nil {
 		e := a.localEndpoint(n)
-		nodes = append(nodes, object{"reality": RealitySettings{e.sni, e.ports[1]}, "id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "network": n.Network, "lines": n.Lines})
+		nodes = append(nodes, object{"reality": RealitySettings{e.sni, e.ports[1]}, "id": "local", "name": n.Name, "host": a.host, "displayIP": a.displayIP, "local": true, "online": a.core.alive(), "network": n.Network, "lines": n.Lines})
 	}
 	for _, remote := range a.state.Remotes {
 		var online any

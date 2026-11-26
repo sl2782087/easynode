@@ -105,7 +105,6 @@ function renderPage() {
 }
 function renderList() {
   const sub=isSubs();
-  if(live && !sub) $("create").innerHTML=icon(nodes.length?"nodes":"plus")+(nodes.length?t("管理本机","Manage local node"):t("添加本机节点","Add local node"));
   const stats=sub ? [[subs.length,t("订阅总数","Subscriptions")],[new Set(subs.flatMap(s=>s.lines)).size,t("已选线路","Included lines")],[allLines().length,t("可选线路","Available lines")]]
     : [[nodes.length,t("节点总数","Total nodes")],[nodes.filter(n=>n.online===true).length,t("在线节点","Online nodes")],[allLines().length,t("协议线路","Connections")],[subs.length,t("订阅","Subscriptions")]];
   $("stats").innerHTML=stats.map(([value,label])=>'<div class="stat"><strong>'+value+'</strong><span>'+label+'</span></div>').join("");
@@ -117,7 +116,7 @@ function renderList() {
   const headers=sub?[t("订阅名称","Subscription"),t("协议","Protocols"),t("线路","Lines"),t("格式","Format")]:[t("节点名称 / 地址","Node / address"),t("协议","Protocols"),t("状态","Status"),t("部署位置","Location")];
   $("list").innerHTML='<div class="row head" aria-hidden="true">'+headers.map((h,i)=>'<span class="'+(i===3?"kind":"")+'">'+h+'</span>').join("")+'</div>'+data.map(item=>{
     const proto=sub?[...new Set(item.lines.map(key=>Number(key.split("/")[1])))]:item.lines;
-    const status=item.online===true?t("在线","Online"):item.online===false?t("离线","Offline"):t("待检测","Unchecked");
+    const status=item.probe==="tcp"?(item.online?t("端口可达","Reachable"):t("端口不可达","Unreachable")):item.online===true?t("在线","Online"):item.online===false?t("离线","Offline"):t("待检测","Unchecked");
     const state=sub?item.lines.length+' '+t("条","lines"):'<span class="state '+(item.online?"":"offline")+'"><i class="dot"></i>'+status+'</span>';
     const kind=sub?t("通用订阅","Universal"):item.local?t("本机","Local"):t("远程","Remote");
     return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small></div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
@@ -136,21 +135,38 @@ function editNode(n) {
     '<label>'+t("部署位置","Location")+'<select name="mode"><option value="remote">'+t("远程服务器","Remote server")+'</option><option value="local">'+t("本机","Panel host")+'</option></select></label>'+
     '<div id="remote" class="form-stack"><div class="pair">'+field(t("服务器地址","Server address"),"host",n?.host||'','placeholder="203.0.113.10" maxlength="253"')+field(t("SSH 端口","SSH port"),"port",n?.port||22,'type="number" min="1" max="65535" required')+'</div>'+
     field(t("SSH 用户名","SSH username"),"user",n?.user||"root",'maxlength="60"')+
-    field(t("SSH 密码","SSH password"),"pass","","disabled placeholder='"+t("预览模式无需凭据","Credentials disabled in preview")+"'")+'</div>'+
+    field(t("SSH 密码","SSH password"),"pass","",live?'type="password" autocomplete="off"':"disabled placeholder='"+t("预览模式无需凭据","Credentials disabled in preview")+"'")+
+    '<small id="host-key" aria-live="polite"></small></div>'+
     '<fieldset><legend>'+t("协议线路","Connections")+'</legend>'+protocols.map((p,i)=>'<label class="choice"><input name="line" type="checkbox" value="'+i+'" '+((n?.lines||[1]).includes(i)?"checked":"")+'>'+p+'</label>').join("")+'</fieldset>'+
-    '<small>'+(live?t("使用独立的本机节点服务。","Uses a dedicated local node service."):t("示例数据仅在当前页面保留。","Sample changes last until the page is reloaded."))+'</small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary">'+(live?t("保存节点","Save node"):t("保存预览","Save preview"))+'</button></div></form>');
+    '<small id="node-help"></small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary"></button></div></form>');
   const f=$("editor");
-  f.mode.value=live||n?.local?"local":"remote";
-  if(live) f.mode.disabled=true;
+  f.mode.value=n ? (n.local?"local":"remote") : nodes.some(item=>item.local)?"remote":"local";
+  f.mode.disabled=Boolean(n);
+  if(!n && nodes.some(item=>item.local)) f.mode.querySelector("option[value=local]").disabled=true;
+  f.host.readOnly=Boolean(n);
+  f.user.readOnly=live;
+  let fingerprint=n?.fingerprint||"";
+  const submit=f.querySelector(".primary");
+  function submitLabel(){
+    submit.textContent=!live?t("保存预览","Save preview"):f.mode.value==="local"?t("保存节点","Save node"):fingerprint?t("部署并保存","Deploy and save"):t("核对 SSH 指纹","Check SSH fingerprint");
+  }
+  function resetKey(){if(!n){fingerprint="";$("host-key").textContent="";}submitLabel();}
+  f.host.oninput=resetKey;f.port.oninput=resetKey;
   function mode() {
     const local=f.mode.value==="local";
     $("remote").hidden=local;
     f.host.required=!local;
     f.port.disabled=local;
+    f.pass.required=live&&!local;
+    $("node-help").textContent=live?(local?t("使用独立的本机节点服务。","Uses a dedicated local service."):t("使用 root 登录，仅在本次部署中使用 SSH 密码。","SSH uses root and the password is used for this operation only.")):t("示例数据仅在当前页面保留。","Changes last until reload.");
+    submitLabel();
   }
   mode(); f.mode.onchange=mode;
-  if(n) $("remove").onclick=()=>confirmRemove(n,false);
-  f.onsubmit=event=>{
+  if(n) $("remove").onclick=()=>{
+    if(live&&!n.local&&!f.pass.value){f.pass.reportValidity();return;}
+    confirmRemove(n,false,f.pass.value);
+  };
+  f.onsubmit=async event=>{
     event.preventDefault();
     const local=f.mode.value==="local";
     const name=f.elements.namedItem("name").value.trim();
@@ -158,6 +174,24 @@ function editNode(n) {
     const lines=[...f.querySelectorAll("[name=line]:checked")].map(input=>Number(input.value));
     if(!lines.length || !name || !host) return notice(t("请填写名称、地址并选择协议","Enter a name, address and protocol"));
     if(local && nodes.some(other=>other.local && other!==n)) return notice(t("本机已经在节点列表中","The panel host is already listed"));
+    if(live && !local){
+      const target={Host:host,Port:Number(f.port.value)};
+      if(!fingerprint){
+        submit.disabled=true;
+        try {
+          const response=await fetch("/api/remote/key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(target)});
+          if(!response.ok) throw Error(await response.text());
+          const result=await response.json();
+          if(host!==f.host.value.trim()||target.Port!==Number(f.port.value))return;
+          fingerprint=result.fingerprint;
+          $("host-key").textContent=t("确认目标主机指纹后再部署：","Verify this host fingerprint before deploying: ")+fingerprint;
+          submitLabel();
+        }catch(e){notice(e.message);}finally{submit.disabled=false;}
+        return;
+      }
+      $("node-help").textContent=t("正在连接、检测配置并启动服务，请稍候。","Connecting, checking the configuration and starting the service…");
+      return saveLive("remote/save",{...target,ID:n?.id||"",Name:name,Lines:lines.map(String),Fingerprint:fingerprint,Password:f.pass.value},afterSave);
+    }
     if(live) return saveLive("node",{Name:name,Lines:lines.map(String)},afterSave);
     const item=n||{id:"node-"+(++sequence)};
     if(!n || Boolean(n.local)!==local || n.host!==host) item.online=null;
@@ -171,10 +205,11 @@ function pruneLines() {
   const keys=new Set(allLines().map(l=>l.key));
   for(const sub of subs) sub.lines=sub.lines.filter(key=>keys.has(key));
 }
-function confirmRemove(item,sub) {
+function confirmRemove(item,sub,password="") {
   dialog(t("确认移除","Confirm removal"),'<p>'+esc(item.name)+'</p><p class="secondary">'+(sub?t("该订阅链接将失效。","This subscription URL will stop working."):t("此节点的线路也将从订阅中移除。","Its connections will also be removed from subscriptions."))+'</p><div class="actions"><button class="quiet" id="back">'+t("取消","Cancel")+'</button><button class="primary" id="confirm">'+t("移除","Remove")+'</button></div>');
   $("back").onclick=()=>sub?showSub(item):editNode(item);
   $("confirm").onclick=()=>{
+    if(live&&!sub&&!item.local) return saveLive("remote/delete",{ID:item.id,Host:item.host,Port:item.port,Fingerprint:item.fingerprint,Password:password},afterSave);
     if(live) return saveLive(sub?"sub/delete":"node/delete",{ID:item.id},afterSave);
     const items=sub?subs:nodes;
     items.splice(items.indexOf(item),1);pruneLines();afterSave();
@@ -263,7 +298,7 @@ function editAccount(password) {
 }
 $("dialog").addEventListener("cancel",e=>{if(live&&!signedIn)e.preventDefault();});
 $("account").onclick=accountHome;
-$("create").onclick=()=>isSubs()?editSub():editNode(live?nodes[0]:undefined);
+$("create").onclick=()=>isSubs()?editSub():editNode();
 $("close").onclick=()=>$("dialog").close();
 $("dialog").addEventListener("close",()=>{if(!$("dialog").open) $("body").replaceChildren();});
 $("search").oninput=renderList;

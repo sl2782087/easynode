@@ -60,6 +60,8 @@ func TestManagementRequiresSession(t *testing.T) {
 		{"GET", "/api/state", "", 401},
 		{"POST", "/api/node", "https://example.org", 401},
 		{"POST", "/api/node", "https://other.example", 403},
+		{"POST", "/api/remote/key", "https://example.org", 401},
+		{"POST", "/api/remote/save", "https://other.example", 403},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader("{}"))
 		req.Header.Set("Origin", tc.origin)
@@ -69,5 +71,33 @@ func TestManagementRequiresSession(t *testing.T) {
 		if res.Code != tc.status {
 			t.Fatalf("%s: got %d, want %d", tc.path, res.Code, tc.status)
 		}
+	}
+}
+
+func TestMixedSubscriptionSurvivesLocalRemoval(t *testing.T) {
+	a := App{dir: t.TempDir(), host: "local.example", ports: [3]int{30443, 30444, 30445}}
+	n, err := newNode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n.Name = "Panel"
+	n.Lines = []int{0}
+	a.state.Node = n
+	r := Remote{ID: "remote1", Host: "remote.example", Ports: [3]int{30443, 30444, 30445}, Node: *n}
+	r.Node.Name = "Remote"
+	a.state.Remotes = []Remote{r}
+	if err := a.change("sub", input{Name: "Both", Lines: []string{"local/0", "remote1/0"}}); err != nil {
+		t.Fatal(err)
+	}
+	s := a.state.Subs[0]
+	profile := a.subscription(s, true)
+	if !strings.Contains(profile, "Panel · 本机 · Shadowsocks") || !strings.Contains(profile, "Remote · Shadowsocks") || strings.Contains(profile, "Remote · 本机") {
+		t.Fatal("wrong origin labels")
+	}
+	if err := a.change("node/delete", input{}); err != nil {
+		t.Fatal(err)
+	}
+	if a.state.Subs[0].ID != s.ID || len(a.state.Subs[0].Lines) != 1 || a.state.Subs[0].Lines[0] != "remote1/0" {
+		t.Fatal("remote selection lost")
 	}
 }

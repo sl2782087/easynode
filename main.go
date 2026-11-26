@@ -36,6 +36,8 @@ type App struct {
 	sessions                                  map[string]time.Time
 	failures                                  map[string]int
 	reset                                     time.Time
+	remoteDeploy                              sync.Mutex
+	reachability                              map[string]portCheck
 }
 
 func env(key, fallback string) string {
@@ -102,6 +104,7 @@ func main() {
 	if err = a.apply(a.state.Node); err != nil {
 		log.Print(err)
 	}
+	go a.monitorRemotes()
 	go func() {
 		for range time.Tick(30 * time.Second) {
 			a.Lock()
@@ -153,6 +156,8 @@ func (a *App) serveSubscription(w http.ResponseWriter, r *http.Request) {
 
 type input struct {
 	User, Password, Current, Name, ID string
+	Host, Fingerprint                 string
+	Port                              int
 	Lines                             []string
 }
 
@@ -216,7 +221,23 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 		return
 	}
-	if path != "state" && path != "login" {
+	if strings.HasPrefix(path, "remote/") {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(10 * time.Minute))
+		info, err := func() (object, error) {
+			a.Unlock()
+			defer a.Lock()
+			return a.manageRemote(path, in)
+		}()
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if info != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(info)
+			return
+		}
+	} else if path != "state" && path != "login" {
 		if err := a.change(path, in); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -229,6 +250,18 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	nodes := []object{}
 	if n := a.state.Node; n != nil {
 		nodes = append(nodes, object{"id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "lines": n.Lines})
+	}
+	for _, remote := range a.state.Remotes {
+		var online any
+		checked := remote.Checked
+		probe := "service"
+		if time.Since(remote.Checked) < 5*time.Minute {
+			online = true
+		}
+		if result, ok := a.reachability[remote.ID]; ok && result.at.After(checked) {
+			online, checked, probe = result.ok, result.at, "tcp"
+		}
+		nodes = append(nodes, object{"id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "lines": remote.Node.Lines})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host})
@@ -291,7 +324,7 @@ func (a *App) change(path string, in input) error {
 		for i, sub := range s.Subs {
 			var lines = []string{}
 			for _, line := range sub.Lines {
-				if hasLine(s.Node, line) {
+				if s.hasLine(line) {
 					lines = append(lines, line)
 				}
 			}
@@ -329,7 +362,7 @@ func (a *App) change(path string, in input) error {
 			return errors.New("Choose a name and connections")
 		}
 		for _, line := range in.Lines {
-			if !hasLine(s.Node, line) {
+			if !s.hasLine(line) {
 				return errors.New("Connection missing")
 			}
 		}
@@ -345,10 +378,22 @@ func (a *App) change(path string, in input) error {
 	}
 	return a.save(s)
 }
-func hasLine(n *Node, key string) bool {
+func (s State) hasLine(key string) bool {
+	id, _, ok := strings.Cut(key, "/")
+	if !ok {
+		return false
+	}
+	n := s.Node
+	if id != "local" {
+		i := slices.IndexFunc(s.Remotes, func(r Remote) bool { return r.ID == id })
+		if i < 0 {
+			return false
+		}
+		n = &s.Remotes[i].Node
+	}
 	if n != nil {
 		for _, p := range n.Lines {
-			if key == fmt.Sprintf("local/%d", p) {
+			if key == fmt.Sprintf("%s/%d", id, p) {
 				return true
 			}
 		}

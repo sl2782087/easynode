@@ -39,6 +39,7 @@ type State struct {
 	User, Salt, Hash string
 	Node             *Node
 	Subs             []Subscription
+	Remotes          []Remote
 }
 
 func random(n int) string {
@@ -74,10 +75,14 @@ func (a *App) inbound(n *Node, p int) object {
 	}
 	return in
 }
-func (a *App) link(n *Node, p int) (object, string) {
+func (a *App) link(n *Node, p int, local bool) (object, string) {
 	port := a.ports[p]
 	addr := net.JoinHostPort(a.host, strconv.Itoa(port))
-	name := n.Name + " · 本机 · " + protocols[p]
+	name := n.Name
+	if local {
+		name += " · 本机"
+	}
+	name += " · " + protocols[p]
 	label := "#" + url.PathEscape(name)
 	m := object{"name": name, "server": a.host, "port": port, "udp": true}
 	switch p {
@@ -104,17 +109,24 @@ func (a *App) link(n *Node, p int) (object, string) {
 }
 func (a *App) subscription(s Subscription, clash bool) string {
 	var proxies, uris, names []string
-	n := a.state.Node
-	if n != nil {
+	appendNode := func(endpoint *App, id string, n *Node) {
+		if n == nil {
+			return
+		}
 		for _, p := range n.Lines {
-			if slices.Contains(s.Lines, fmt.Sprintf("local/%d", p)) {
-				m, uri := a.link(n, p)
+			if slices.Contains(s.Lines, fmt.Sprintf("%s/%d", id, p)) {
+				m, uri := endpoint.link(n, p, id == "local")
 				data, _ := json.Marshal(m)
 				proxies = append(proxies, "  - "+string(data))
 				uris = append(uris, uri)
 				names = append(names, m["name"].(string))
 			}
 		}
+	}
+	appendNode(a, "local", a.state.Node)
+	for _, remote := range a.state.Remotes {
+		endpoint := App{host: remote.Host, ports: remote.Ports, sni: remote.SNI}
+		appendNode(&endpoint, remote.ID, &remote.Node)
 	}
 	if !clash {
 		return base64.StdEncoding.EncodeToString([]byte(strings.Join(uris, "\n")))

@@ -36,7 +36,7 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.1.0
+release=https://github.com/sl2782087/easynodedeck/releases/download/v0.2.0
 if [[ -z ${DECK_BINARY:-} ]]; then
   asset=easynodedeck-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"

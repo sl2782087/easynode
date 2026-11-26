@@ -6,6 +6,17 @@
 
 A lightweight, self-hosted panel for local and remote Linux nodes. Combine Shadowsocks, VLESS + REALITY and Hysteria 2 connections in stable subscription URLs and QR codes.
 
+![Node list showing the local node, egress flags, network names and protocols](assets/panel-preview-en.webp)
+
+<details>
+<summary>View node network details</summary>
+
+<img src="assets/node-network-en.webp" alt="Node details with egress IPv4, region flag, ASN, network name and TCP latency" width="528">
+
+</details>
+
+Server and egress addresses in these screenshots use documentation IPs.
+
 ## Supported systems
 
 Both the panel host and remote nodes provisioned over SSH require a Linux VPS booted with systemd.
@@ -60,8 +71,6 @@ Enter a public IPv4 address, SSH port and root password. Verify the SSH host fin
 Repeating deployment reuses the node identity and matching configuration. The SSH password is used for the current operation only. Removing a remote node requires SSH authentication, stops its service and removes its connections from subscriptions. See `/var/log/easynodedeck-node-install.log` on the remote host for installation errors. Reachability in the node list reflects a check of the selected TCP listeners. UDP-only nodes use the last service check over SSH.
 
 For an offline UI demonstration, open [web/index.html](web/index.html) directly as a local file.
-
-![Node management design preview](assets/panel-preview.webp)
 
 ## Contributing
 

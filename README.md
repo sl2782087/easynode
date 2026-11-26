@@ -6,6 +6,17 @@
 
 从一个面板管理本机和远程 Linux 节点，勾选 Shadowsocks、VLESS + REALITY 和 Hysteria 2 线路即可生成固定订阅地址及二维码。
 
+![节点列表，显示本机标识、出口地区旗帜、网络名称和协议](assets/panel-preview.webp)
+
+<details>
+<summary>查看节点网络详情</summary>
+
+<img src="assets/node-network.webp" alt="节点网络详情，显示出口 IPv4、地区旗帜、ASN、网络名称和 TCP 延迟" width="528">
+
+</details>
+
+截图中的服务器和出口地址已替换为文档示例 IP。
+
 ## 支持的系统
 
 下表适用于面板主机和通过 SSH 添加的远程节点。两者都需要以 systemd 启动的 Linux VPS。
@@ -60,8 +71,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.
 安装器单独管理 `easynodedeck-node.service`，重复部署会复用该节点的身份和相同配置。SSH 密码仅用于本次操作。移除远程节点需要再次输入密码，会停止该服务并从订阅移除其线路。排查部署问题可读取目标机的 `/var/log/easynodedeck-node-install.log`。列表中「端口可达」表示面板已连通所选 TCP 端口；纯 HY2 节点使用最近一次 SSH 服务检查结果。
 
 浏览器直接打开本地 [web/index.html](web/index.html) 可试用离线设计预览。
-
-![节点管理面板预览](assets/panel-preview.webp)
 
 ## 参与
 

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1322">
+  <meta name="description" content="EasyNodeDeck 易节点是轻量的开源自托管面板。在网页里部署 VPS 节点，用一个订阅连接手机和电脑。">
+  <title>EasyNodeDeck 易节点 · 自托管节点管理面板</title>
+  <link rel="icon" href="./assets/logo.png">
+  <link rel="stylesheet" href="./site.css">
+  <script defer src="./site.js"></script>
+</head>
+<body>
+<header><div class="wrap bar">
+  <a class="brand" href="./"><img src="./assets/logo.png" width="32" height="32" alt="">EasyNodeDeck</a>
+  <nav aria-label="Navigation"><a class="doc" href="https://github.com/sl2782087/easynodedeck/blob/main/README.md" data-en="Guide">使用文档</a><a href="https://github.com/sl2782087/easynodedeck">GitHub</a><button id="language" aria-label="Switch to English" hidden>EN</button></nav>
+</div></header>
+<main class="wrap">
+  <section class="hero">
+    <div class="intro">
+      <h1><span data-en="Your nodes,">自己的节点，</span><span data-en="in one place.">一处打理。</span></h1>
+      <p data-en="Turn your VPS into a proxy node. Deploy more servers from the same panel and connect your phone and computer with one subscription.">把自己的 VPS 变成代理节点。在同一个面板里部署更多服务器，用一条订阅连接手机和电脑。</p>
+      <div class="actions"><a class="primary" href="#install"><span class="terminal-icon" aria-hidden="true">›_</span><span data-en="Install on your VPS">安装到我的 VPS</span></a><a class="text-link" href="#preview" data-en="Panel preview">查看面板</a></div>
+    </div>
+    <div class="scene">
+      <div class="orbits" aria-hidden="true"><i></i><i></i><i></i></div>
+      <section class="console glass" aria-label="Demo">
+        <div class="console-head"><span class="console-brand"><img src="./assets/logo.png" alt="" width="24" height="24">EasyNodeDeck</span><span class="sample" data-en="Demo data">模拟数据</span></div>
+        <div class="switch"><button id="nodes-tab" type="button" aria-pressed="true" aria-controls="nodes" data-en="Nodes">节点</button><button id="subs-tab" type="button" aria-pressed="false" aria-controls="subs" data-en="Subscriptions">订阅</button></div>
+        <div id="nodes">
+          <div class="console-title"><h2 data-en="Node list">节点列表</h2><small data-en="3 online">3 台在线</small></div>
+          <div class="node"><span class="code">HK</span><div><b>Hong Kong</b><small>203.0.113.12</small></div><span class="protocol">VLESS + REALITY</span></div>
+          <div class="node"><span class="code">JP</span><div><b>Tokyo</b><small>198.51.100.24</small></div><span class="protocol">Shadowsocks</span></div>
+          <div class="node"><span class="code">SG</span><div><b>Singapore</b><small>192.0.2.36</small></div><span class="protocol">Hysteria 2</span></div>
+        </div>
+        <div id="subs" hidden>
+          <div class="console-title"><h2 data-en="Subscriptions">订阅列表</h2><small data-en="1 subscription">1 条订阅</small></div>
+          <div class="sub-row"><b>Asia Pacific</b><small data-en="3 connections">3 条线路</small></div>
+          <code class="sample-url">https://demo.invalid/s/example</code>
+          <small data-en="Example subscription for Shadowrocket and Clash Verge Rev.">Shadowrocket 与 Clash Verge Rev 订阅示例。</small>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section class="install glass" id="install">
+    <div class="install-head"><div><h2 data-en="Install with one command">一条命令安装</h2><p data-en="Run as root in Bash on a VPS with a public IPv4 address. Keep TCP 80 and 443 open and allow the ports for your chosen protocols.">在有公网 IPv4 的 VPS 上，以 root 身份在 Bash 中运行。放行 TCP 80、443 和所选协议端口。</p></div><a class="version" href="https://github.com/sl2782087/easynodedeck/releases/tag/v0.6.0">v0.6.0</a></div>
+    <div class="command"><span aria-hidden="true">$</span><code id="command">bash &lt;(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.0/install.sh)</code><button id="copy" hidden data-en="Copy">复制命令</button></div>
+    <p class="systems">Debian 12 / 13 · Ubuntu LTS 22.04 / 24.04 / 26.04 · Rocky Linux 8 / 9 / 10 · CentOS Stream 9 / 10</p>
+    <div class="sr" role="status" id="feedback"></div>
+  </section>
+  <section class="workflow">
+    <h2 data-en="From a VPS to your first subscription">从一台 VPS 到第一条订阅</h2>
+    <ol>
+      <li><h3 data-en="Sign in to your panel">登录自己的面板</h3><p data-en="Use your public IP or a domain. The installer sets up HTTPS and prints the URL. Leave the account fields blank to generate credentials.">公网 IP 或域名都能用。安装器会配置 HTTPS，并在终端显示访问地址。账密留空即可自动生成。</p></li>
+      <li><h3 data-en="Choose your nodes">选好节点和协议</h3><p data-en="Start with the panel host or add another VPS over SSH. Verify its fingerprint, select your protocols and let the panel install them.">先用本机，也可以填入另一台 VPS 的 SSH 信息。核对指纹、勾选协议后，面板会自动安装配置。</p></li>
+      <li><h3 data-en="Import once, refresh later">导入一次，按需刷新</h3><p data-en="Paste the link into Clash Verge Rev or scan the QR code with Shadowrocket. When your connections change, refresh the subscription.">在 Clash Verge Rev 粘贴链接，或用 Shadowrocket 扫码。以后增减线路，在客户端刷新原订阅即可。</p></li>
+    </ol>
+  </section>
+  <section id="preview" class="preview">
+    <h2 data-en="Inside the panel">面板实览</h2>
+    <p data-en="See which nodes are online, where traffic exits and which protocols each node offers. This screenshot uses sample data.">查看节点是否在线、流量从哪里出去，以及每台机器支持的协议。下图使用模拟数据。</p>
+    <a class="shot" id="full-preview" href="./assets/panel-preview.webp"><img id="screenshot" width="1320" height="960" loading="lazy" src="./assets/panel-preview.webp" alt="节点管理面板，显示节点状态、出口地区及协议"></a>
+  </section>
+</main>
+<footer><div class="wrap bar"><span>EasyNodeDeck</span><nav aria-label="Project"><a href="https://github.com/sl2782087/easynodedeck/issues" data-en="Feedback">问题反馈</a><a href="https://github.com/sl2782087/easynodedeck/blob/main/LICENSE">MIT License</a></nav></div></footer>
+</body>
+</html>

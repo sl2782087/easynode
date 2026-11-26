@@ -2,7 +2,7 @@
 
 # EasyNodeDeck · 易节点
 
-简体中文 · [English](README.en.md)
+[官网](https://sl2782087.github.io/easynodedeck/) · 简体中文 · [English](README.en.md)
 
 **把自己的 VPS 变成代理节点，手机和电脑用同一个订阅。**
 

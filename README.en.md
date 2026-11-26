@@ -2,7 +2,7 @@
 
 # EasyNodeDeck
 
-[简体中文](README.md) · English
+[Website](https://sl2782087.github.io/easynodedeck/?lang=en) · [简体中文](README.md) · English
 
 **Turn your VPS into a proxy node and use one subscription on your phone and computer.**
 

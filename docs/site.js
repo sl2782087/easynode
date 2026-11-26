@@ -18,6 +18,7 @@ function setLanguage() {
   language.textContent = english ? "中文" : "EN";
   language.setAttribute("aria-label", english ? "切换为中文" : "Switch to English");
   document.querySelector(".doc").href = "https://github.com/sl2782087/easynodedeck/blob/main/" + (english ? "README.en.md" : "README.md");
+  byId("ports").href = document.querySelector(".doc").href + (english ? "#port-reference" : "#端口清单");
   const screenshot = byId("screenshot");
   screenshot.src = "./assets/panel-preview" + (english ? "-en" : "") + ".webp";
   screenshot.alt = english ? "Node management panel showing status, egress regions and protocols" : "节点管理面板，显示节点状态、出口地区及协议";

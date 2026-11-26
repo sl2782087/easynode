@@ -121,7 +121,7 @@ function renderList() {
     const kind=sub?t("通用订阅","Universal"):item.local?t("本机","Local"):t("远程","Remote");
     const exit=item.network?.addresses[0];
     const summary=exit?[exit.location,exit.organization].filter(Boolean).join(" · "):"";
-    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small>'+(summary?'<small class="network-summary">'+esc(summary)+'</small>':'')+'</div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
+    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small>'+(summary?'<small class="network-summary">'+regionFlag(exit.location)+esc(summary)+'</small>':'')+'</div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
   }).join("");
   if (!data.length) $("list").insertAdjacentHTML("beforeend",'<p class="empty">'+t("没有符合条件的记录","No matching records")+'</p>');
   $("count").textContent=t("显示 "+data.length+" 项，共 "+(sub?subs:nodes).length+" 项","Showing "+data.length+" of "+(sub?subs:nodes).length);
@@ -135,7 +135,7 @@ function showNode(n) {
   const info=n.network;
   const row=(label,value)=>value==null||value===""?"":`<dt>${label}</dt><dd>${esc(value)}</dd>`;
   const addresses=(info?.addresses||[]).map(addr=>`<section class="exit-card"><h3>${addr.ip.includes(":")?"IPv6":"IPv4"} · ${t("出口","Egress")}</h3><strong>${esc(addr.ip)}</strong>
-    <dl>${row(t("地区","Region"),addr.location)}${row("ASN",addr.asn)}${row(t("网络名称","Network"),addr.organization)}${row(t("反向域名","Reverse DNS"),addr.ptr||"—")}</dl></section>`).join("");
+    <dl>${addr.location?`<dt>${t("地区","Region")}</dt><dd>${regionFlag(addr.location)}${esc(addr.location)}</dd>`:""}${row("ASN",addr.asn)}${row(t("网络名称","Network"),addr.organization)}${row(t("反向域名","Reverse DNS"),addr.ptr||"—")}</dl></section>`).join("");
   dialog(n.name,`<div class="form-stack">
     <div><small>${t("服务器地址","Server address")}</small><div>${esc(n.host)} · ${n.local?t("本机","Local"):t("远程","Remote")}</div></div>
     <div class="network-heading"><h3>${t("网络信息","Network details")}</h3><small>Ping0</small></div>

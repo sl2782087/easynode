@@ -122,3 +122,19 @@ footer {border-block:1px solid var(--line);color:var(--muted);font-size:.9rem}
   .workflow ol {gap:20px}
   footer .bar {flex-wrap:wrap;padding-block:12px}
 }
+.demo-lines {margin:12px 0 0;padding:0;border:0}
+.demo-lines legend,.tour-feature figcaption {font-size:.83rem;color:var(--muted)}
+.demo-lines label {display:flex;align-items:center;gap:7px;font-size:.875rem;padding:4px 0;cursor:pointer}
+.demo-lines input {accent-color:#aec9e8}
+.tour-feature {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:clamp(22px,5vw,76px);align-items:center;margin-top:32px;padding-block:28px;border-top:1px solid var(--line)}
+.tour-feature h3 {font-size:1.3rem}
+.tour-feature p+h3 {margin-top:24px}
+.tour-feature figure {margin:0;text-align:center}
+.tour-feature .shot {margin:0}
+.network-shot {width:min(100%,350px);height:auto;border-radius:16px}
+.tour-feature figcaption {margin-top:8px}
+@media(max-width:700px){.tour-feature{grid-template-columns:1fr;padding-block:12px;margin-top:22px}}
+
+.runtime {margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.runtime summary {cursor:pointer}
+.runtime p {max-width:65em}

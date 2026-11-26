@@ -23,7 +23,21 @@ function setLanguage() {
   screenshot.src = "./assets/panel-preview" + (english ? "-en" : "") + ".webp";
   screenshot.alt = english ? "Node management panel showing status, egress regions and protocols" : "节点管理面板，显示节点状态、出口地区及协议";
   byId("full-preview").href = screenshot.src;
+  const network = byId("network-shot");
+  network.src = "./assets/node-network" + (english ? "-en" : "") + ".webp";
+  network.alt = english ? "Sample node network details" : "节点详情示例";
+  updateLineCount();
 }
+
+function updateLineCount() {
+  const count = document.querySelectorAll(".demo-lines input:checked").length;
+  if (!count) {
+    byId("line-count").textContent = english ? "Select a connection" : "请选择至少一条线路";
+    return;
+  }
+  byId("line-count").textContent = english ? count + (count === 1 ? " connection" : " connections") : count + " 条线路";
+}
+document.querySelector(".demo-lines").addEventListener("change", updateLineCount);
 
 language.onclick = () => {
   english = !english;

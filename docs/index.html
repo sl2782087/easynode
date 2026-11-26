@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b1322">
-  <meta name="description" content="用易节点把自己的云服务器变成代理节点。一条命令装好面板和 sing-box，在网页里生成订阅，手机和电脑直接导入。">
+  <meta name="description" content="EasyNode 是个人自托管节点面板。从第一台 VPS 开始，在网页里部署多台服务器、选择协议、检查实际出口，再用一条订阅连接手机和电脑。">
   <title>EasyNode 易节点 · 自托管节点管理面板</title>
   <link rel="icon" href="./assets/logo.png">
   <link rel="stylesheet" href="./site.css">
@@ -18,8 +18,8 @@
 <main class="wrap">
   <section class="hero">
     <div class="intro">
-      <h1><span data-en="Set up a node">把自己的服务器</span><span data-en="on your own VPS.">变成代理节点</span></h1>
-      <p data-en="Start with your own Linux VPS. One command installs EasyNode and sing-box, the software that runs your nodes. Pick a protocol in your browser and create a subscription. Paste its link into Clash Verge Rev or scan the QR code in Shadowrocket.">自备一台 Linux 云服务器，一条命令装好 EasyNode 和运行节点所需的 sing-box。在网页里勾选协议、创建订阅，电脑上的 Clash Verge Rev 可以直接粘贴链接，iPhone 上的 Shadowrocket 扫码就能导入。</p>
+      <h1><span data-en="Your proxy nodes,">自己的代理节点，</span><span data-en="in one panel.">一个面板就能管</span></h1>
+      <p data-en="Start with the Linux server you already own. EasyNode sets up your first node there. When you add another VPS, deploy it from the same panel and choose which connections belong in your subscription. Your phone and computer can keep using the link they already have.">手里有一台 Linux 云服务器（VPS），就能用它搭好第一个节点。以后添了服务器，在原面板里就能部署。选好要用的线路，手机和电脑共用一条订阅。下次换线路，刷新即可。</p>
       <div class="actions"><a class="primary" href="#install"><span class="terminal-icon" aria-hidden="true">›_</span><span data-en="Install on your VPS">安装到我的 VPS</span></a><a class="text-link" href="#preview" data-en="Panel preview">查看面板</a></div>
     </div>
     <div class="scene">
@@ -34,10 +34,14 @@
           <div class="node"><span class="code">SG</span><div><b>Singapore</b><small>192.0.2.36</small></div><span class="protocol">Hysteria 2</span></div>
         </div>
         <div id="subs" hidden>
-          <div class="console-title"><h2 data-en="Subscriptions">订阅列表</h2><small data-en="1 subscription">1 条订阅</small></div>
-          <div class="sub-row"><b>Asia Pacific</b><small data-en="3 connections">3 条线路</small></div>
+          <div class="console-title"><h2 data-en="My subscription">我的订阅</h2><small id="line-count" aria-live="polite">2 条线路</small></div>
+          <fieldset class="demo-lines"><legend data-en="Choose connections to include">试着勾选要放进订阅的线路</legend>
+            <label><input type="checkbox" checked>Hong Kong · VLESS + REALITY</label>
+            <label><input type="checkbox" checked>Tokyo · Shadowsocks</label>
+            <label><input type="checkbox">Singapore · Hysteria 2</label>
+          </fieldset>
           <code class="sample-url">https://demo.invalid/s/example</code>
-          <small data-en="Example subscription for Shadowrocket and Clash Verge Rev.">Shadowrocket 与 Clash Verge Rev 订阅示例。</small>
+          <small data-en="This example link stays the same as you change connections.">换个勾选试试，上方示例订阅地址会保留。</small>
         </div>
       </section>
     </div>
@@ -55,12 +59,29 @@
     <div class="command"><span aria-hidden="true">$</span><code id="command">bash &lt;(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynode/v0.6.2/install.sh)</code><button id="copy" hidden data-en="Copy">复制命令</button></div>
     <a id="ports" href="https://github.com/sl2782087/easynode/blob/main/README.md#端口清单" data-en="Which ports should I open?">我要放行哪些端口？</a>
     <p class="systems">Debian 12 / 13 · Ubuntu LTS 22.04 / 24.04 / 26.04 · Rocky Linux 8 / 9 / 10 · CentOS Stream 9 / 10</p>
+    <details class="runtime"><summary data-en="What gets installed on my VPS?">会在我的服务器上安装什么？</summary><p data-en="EasyNode serves the web panel and subscriptions. The installer sets up sing-box to run the protocols, Certbot for HTTPS certificates and systemd services for startup and renewal. The panel keeps its data in local files, so you can run it without a separate database.">EasyNode 本身提供网页面板和订阅。安装脚本配好运行协议的 sing-box、管理 HTTPS 证书的 Certbot，以及负责启动服务和定时续期的 systemd 配置。面板数据保存在本机文件里，无需另装数据库。</p></details>
     <div class="sr" role="status" id="feedback"></div>
   </section>
   <section id="preview" class="preview">
-    <h2 data-en="Manage all your servers in one panel">多台服务器，在一个面板里管</h2>
-    <p data-en="Choose Shadowsocks, VLESS + REALITY or Hysteria 2 for each node. The list shows the configured protocols and the latest status. Open a node to check its egress IP and network provider. The screenshot uses sample data.">每台机器可以分别选择 Shadowsocks、VLESS + REALITY 或 Hysteria 2。列表里能看到每个节点的协议和最近状态，点开详情还能查看实际出口 IP 和网络运营商。下图为模拟数据。</p>
-    <a class="shot" id="full-preview" href="./assets/panel-preview.webp"><img id="screenshot" width="1320" height="960" loading="lazy" src="./assets/panel-preview.webp" alt="节点管理面板，显示节点状态、出口地区及协议"></a>
+    <h2 data-en="What you can manage after setup">搭好以后，面板还能帮你做什么？</h2>
+    <div class="tour-feature">
+      <div>
+        <h3 data-en="Add a second VPS from the first">从第一台面板，部署第二台服务器</h3>
+        <p data-en="Enter the new server’s SSH address, port and password. After you verify its fingerprint, EasyNode installs the node and starts the protocols you selected. It reuses a matching active configuration. The SSH password is used only for that operation.">填入新服务器的 SSH 地址、端口和密码，核对主机指纹。面板会安装节点，启动你选的协议。如果已有相同配置且服务正在运行，就会跳过重复安装。SSH 密码仅用于本次操作。</p>
+        <h3 data-en="Choose protocols per server">一台机器可以开多种线路</h3>
+        <p data-en="Enable Shadowsocks, VLESS + REALITY or Hysteria 2 in any combination. EasyNode generates the connection credentials and writes the configuration. Advanced REALITY settings let you change the handshake target or listening port and test the connection.">Shadowsocks、VLESS + REALITY、Hysteria 2 可以按需组合。密钥、连接凭据和配置文件由面板生成。使用 REALITY 时，还可以在高级设置里调整握手目标和监听端口，并测试连接。</p>
+      </div>
+      <figure><a class="shot" id="full-preview" href="./assets/panel-preview.webp"><img id="screenshot" width="1320" height="960" loading="lazy" src="./assets/panel-preview.webp" alt="节点管理面板，显示节点状态、出口地区及协议"></a><figcaption data-en="Node list with sample data. Select the image to enlarge.">节点列表使用模拟数据，点图可放大。</figcaption></figure>
+    </div>
+    <div class="tour-feature">
+      <div>
+        <h3 data-en="See where a connection exits">看看这条线路实际从哪里出去</h3>
+        <p data-en="Open a node and run a check. The panel sends a request through one of its connections and shows the reported egress IP, region and network operator. It records when the check succeeded. For TCP connections, it can also show latency from the panel to the node.">打开节点详情，点「重新检测」。面板会通过节点的一条线路发起请求，显示查到的出口 IP、地区、运营商和检测时间。使用 TCP 的线路还可以看到面板到节点的连接延迟。</p>
+        <h3 data-en="Start with an IP, add a domain later">先用 IP 登录，有了域名再绑</h3>
+        <p data-en="Point your domain at the panel VPS, then enter it in Account. EasyNode checks DNS, requests a certificate and switches the panel to HTTPS on the new address. Certificates renew automatically. After changing domains, update the subscription URL in your apps.">把域名解析到面板服务器，再到「用户中心」填入域名。面板会检查 DNS、申请证书并切换访问地址，后续证书自动续期。切换域名后，在客户端更新一次订阅地址即可。</p>
+      </div>
+      <figure><img id="network-shot" class="network-shot" width="528" height="588" loading="lazy" src="./assets/node-network.webp" alt="节点详情示例"><figcaption data-en="Network details from a sample node.">节点网络详情示例。</figcaption></figure>
+    </div>
   </section>
   <section class="scope" id="usage">
     <h2 data-en="Scope and lawful use">项目与使用声明</h2>

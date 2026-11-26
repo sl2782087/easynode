@@ -4,13 +4,20 @@
 
 [Website](https://easynode.cc.cd/?lang=en) · [简体中文](README.md) · English
 
-**Install the panel and sing-box with one command, create a node in your browser and import the resulting subscription directly on your phone or computer.**
+**Manage your own proxy nodes from one web panel.** Your first VPS can run both the panel and a node. When you add another server, deploy it from the same panel, add its connections to an existing subscription and refresh that subscription on your devices.
 
-EasyNode is for people who want to run proxy nodes on their own Linux servers. Your first VPS can host both the panel and a node. Start with a public IPv4 address and the required ports open. A domain is optional.
+### What can you do with EasyNode?
 
-- **Ready out of the box.** The installer sets up dependencies and HTTPS and installs sing-box, the software that runs your nodes. It reuses a compatible sing-box 1.13.x installation found on your system. Leave the account prompts blank to generate credentials. The installer prints your sign-in URL when it finishes.
-- **Choose protocols in your browser.** Use the panel host or connect another VPS over SSH. Select Shadowsocks, VLESS + REALITY or Hysteria 2. The panel writes the configuration and starts the connections.
-- **Import the subscription directly.** Select the connections you want and create a subscription. Paste its URL into Clash Verge Rev or scan the QR code in Shadowrocket on your iPhone. When you add or remove connections, refresh the same subscription in your client.
+| Task | How it works |
+| --- | --- |
+| Set up your first node | Run one command on your VPS. The installer handles dependencies, installs or reuses a compatible sing-box and sets up HTTPS. Sign in with the URL and credentials printed in the terminal, then add the panel host as a node. |
+| Bring another server online | Enter its SSH address, port and password and verify the host fingerprint. The panel deploys the node remotely and skips reinstallation when a matching configuration is already active. The SSH password is used only for that operation. |
+| Choose protocols per server | Select any combination of Shadowsocks, VLESS + REALITY and Hysteria 2. The panel generates credentials and writes the configuration. For REALITY, you can also adjust the handshake target and listening port and test the connection. |
+| Connect your devices | Pick connections across servers to create a subscription URL and QR code. Paste the URL into Clash Verge Rev or scan the code in Shadowrocket. The panel serves Clash configuration or a list of node links depending on the client. Refresh the same subscription after changing its connections. |
+| Check a node’s actual egress | Open its details and choose **Check again**. The panel makes a request through one of the node’s connections to report the egress IP, region and network operator, along with available ASN and reverse DNS data and the time of the check. TCP latency is measured from panel to node. |
+| Manage the panel address and account | Start with a public IPv4 address. Later, point a domain at the panel and enter it under **Account**. EasyNode checks DNS, requests a certificate and switches the address. Certificates renew automatically. You can also change your admin username and password here. |
+
+**What runs on the VPS?** The EasyNode Go program serves the web interface, administrator login, deployment and subscriptions. Sing-box runs the selected protocols. Certbot manages certificates, and systemd manages services and renewal timers. Configuration and account data live in local files, so there is no separate database to install. Additional servers run the node service.
 
 [Quick start](#quick-start) · [Supported systems](#supported-systems)
 

@@ -13,16 +13,20 @@ Both the panel host and remote nodes provisioned over SSH require a Linux VPS bo
 | Distribution | Supported versions | CPU architectures |
 | --- | --- | --- |
 | Debian | 12 (Bookworm), 13 (Trixie) | amd64, arm64 |
-| Ubuntu Server LTS | 22.04 (Jammy), 24.04 (Noble) | amd64, arm64 |
+| Ubuntu Server LTS | 22.04 (Jammy), 24.04 (Noble), 26.04 (Resolute) | amd64, arm64 |
+| Rocky Linux | 8 (8.10), 9, 10 | amd64, arm64 |
+| CentOS Stream | 9, 10 | amd64, arm64 |
 
-APT dependencies, Python virtual environments and Certbot’s IP certificate option were checked in the official arm64 container images for all four versions. Public end-to-end testing used Debian 12 amd64 for HTTPS sign-in, node management and client subscriptions. The installer checks the distribution, version, architecture and systemd before installing missing packages with APT.
+Package installation, Python virtual environments and Certbot’s IP certificate option were checked in arm64 container images for every version in the table. Rocky 8.10 arm64 also ran the HTTPS panel, a service restart, the HY2 UDP listener and its renewal timer under systemd using a local test certificate. Public issuance, renewal and deployments with SELinux enforcing on the newly added systems still need live validation. Public end-to-end testing used Debian 12 amd64 for HTTPS sign-in, node management and client subscriptions. The installer checks the distribution, version, architecture and systemd before installing missing packages with APT or DNF. On Rocky 8, root stages certificates and node configuration in a protected runtime directory at service start, including restarts after renewal.
+
+CentOS Linux 7/8 and CentOS Stream 8 have reached end of life. Windows can run subscription clients. Native Windows panel and node services are not available.
 
 ## Install or upgrade
 
 Run the command below as root in a Bash shell on the panel VPS with curl installed. The installer accepts a public IPv4 address or a domain already pointing to the server. Leave the username and password blank to generate credentials.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.3.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
 ```
 
 On first install, the terminal prints the HTTPS URL and administrator credentials. To upgrade, rerun the same command. It keeps your existing account, nodes and subscriptions and restarts the panel service.

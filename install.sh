@@ -2,11 +2,18 @@
 set -euo pipefail
 umask 077
 [[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
-supported='Debian 12/13, Ubuntu 22.04/24.04 LTS (amd64/arm64)'
+supported='Debian 12/13, Ubuntu 22.04/24.04/26.04 LTS, Rocky Linux 8/9/10, CentOS Stream 9/10 (amd64/arm64)'
 [[ -r /etc/os-release ]] || { echo "Supported: $supported" >&2; exit 78; }
 . /etc/os-release
+major=${VERSION_ID:-}
+major=${major%%.*}
+python=python3
 case "${ID:-}:${VERSION_ID:-}" in
-  debian:12|debian:13|ubuntu:22.04|ubuntu:24.04) ;;
+  debian:12|debian:13|ubuntu:22.04|ubuntu:24.04|ubuntu:26.04) manager=apt ;;
+  rocky:8|rocky:8.*|rocky:9|rocky:9.*|rocky:10|rocky:10.*) manager=dnf ;;
+  centos:9|centos:10)
+    [[ ${NAME:-} == "CentOS Stream" ]] || { echo "Supported: $supported" >&2; exit 78; }
+    manager=dnf ;;
   *) echo "Unsupported system: ${PRETTY_NAME:-unknown}. Supported: $supported" >&2; exit 78 ;;
 esac
 [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null || { echo 'A running systemd host is required.' >&2; exit 78; }
@@ -16,24 +23,36 @@ case "$(uname -m)" in
   *) echo 'Supported architectures: amd64, arm64' >&2; exit 78 ;;
 esac
 # The panel also runs this preflight on remote nodes before creating their identity.
-packages=(ca-certificates curl tar gzip openssl util-linux passwd)
-case "${1:-}" in
-  '') packages+=(iproute2 python3-venv) ;;
-  --prepare-node-tls) packages+=(python3-venv) ;;
-  --prepare-node) ;;
-  *) echo "Unknown argument: $1" >&2; exit 2 ;;
-esac
-missing=()
-for package in "${packages[@]}"; do
-  if [[ $(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) != installed ]]; then
-    missing+=("$package")
+role=${1:-panel}
+case "$role" in panel|--prepare-node|--prepare-node-tls) ;; *) echo "Unknown role: $role" >&2; exit 2 ;; esac
+packages=(ca-certificates tar gzip openssl util-linux)
+if [[ $manager == apt ]]; then
+  packages+=(curl passwd)
+  [[ $role != panel ]] || packages+=(iproute2)
+  [[ $role == --prepare-node ]] || packages+=(python3-venv)
+  missing=()
+  for package in "${packages[@]}"; do
+    if [[ $(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) != installed ]]; then
+      missing+=("$package")
+    fi
+  done
+  if (( ${#missing[@]} )); then
+    (umask 022
+     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l
+     apt-get -o Acquire::Retries=2 -qq update
+     apt-get -o Acquire::Retries=2 -qq install -y --no-install-recommends "${missing[@]}")
   fi
-done
-if (( ${#missing[@]} )); then
-  (umask 022
-   export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l
-   apt-get -o Acquire::Retries=2 -qq update
-   apt-get -o Acquire::Retries=2 -qq install -y --no-install-recommends "${missing[@]}")
+else
+  packages+=(shadow-utils)
+  command -v curl >/dev/null || packages+=(curl)
+  [[ $role != panel ]] || packages+=(iproute)
+  if [[ $role != --prepare-node ]]; then
+    if [[ $major == 10 ]]; then packages+=(python3 python3-pip)
+    else python=python3.11; packages+=(python3.11 python3.11-pip); fi
+  fi
+  if ! rpm -q "${packages[@]}" >/dev/null; then
+    (umask 022; dnf -y --setopt=install_weak_deps=False install "${packages[@]}")
+  fi
 fi
 [[ -z ${1:-} ]] || exit 0
 root=/opt/easynodedeck
@@ -65,7 +84,7 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.3.0
+release=https://github.com/sl2782087/easynodedeck/releases/download/v0.4.0
 if [[ -z ${DECK_BINARY:-} ]]; then
   asset=easynodedeck-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"
@@ -85,7 +104,7 @@ else
   core=$root/sing-box
 fi
 if [[ ! -x "$acme/bin/certbot" ]]; then
-  python3 -m venv "$acme"
+  "$python" -m venv "$acme"
   "$acme/bin/pip" -q install 'certbot>=5.4,<7'
 fi
 if [[ $host =~ ^[0-9.]+$ ]]; then
@@ -119,8 +138,6 @@ EnvironmentFile=/etc/easynodedeck/panel.env
 StateDirectory=easynodedeck
 StateDirectoryMode=0700
 WorkingDirectory=/var/lib/easynodedeck
-LoadCredential=cert.pem:/etc/letsencrypt/live/easynodedeck/fullchain.pem
-LoadCredential=key.pem:/etc/letsencrypt/live/easynodedeck/privkey.pem
 ExecStart=/opt/easynodedeck/panel
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
@@ -134,6 +151,23 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 UNIT
+unit=/etc/systemd/system/easynodedeck.service
+if [[ $ID == rocky && $major == 8 ]]; then
+  # systemd 239 predates LoadCredential. Only root can write this directory.
+  cat >> "$unit" <<'UNIT'
+[Service]
+Environment=CREDENTIALS_DIRECTORY=/run/easynodedeck-certs
+ExecStartPre=+/usr/bin/install -d -m 0750 -o root -g easynodedeck /run/easynodedeck-certs
+ExecStartPre=+/usr/bin/install -m 0440 -o root -g easynodedeck /etc/letsencrypt/live/easynodedeck/fullchain.pem /run/easynodedeck-certs/cert.pem
+ExecStartPre=+/usr/bin/install -m 0440 -o root -g easynodedeck /etc/letsencrypt/live/easynodedeck/privkey.pem /run/easynodedeck-certs/key.pem
+UNIT
+else
+  cat >> "$unit" <<'UNIT'
+[Service]
+LoadCredential=cert.pem:/etc/letsencrypt/live/easynodedeck/fullchain.pem
+LoadCredential=key.pem:/etc/letsencrypt/live/easynodedeck/privkey.pem
+UNIT
+fi
 cat > /etc/systemd/system/easynodedeck-renew.service <<'UNIT'
 [Unit]
 Description=Renew EasyNodeDeck TLS certificate

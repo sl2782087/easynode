@@ -132,7 +132,7 @@ func remoteScript(c *ssh.Client, script string) ([]byte, error) {
 	if err = s.Wait(); err != nil {
 		var exit *ssh.ExitError
 		if errors.As(err, &exit) && exit.ExitStatus() == 78 {
-			return nil, errors.New("需要 Debian 12/13 或 Ubuntu 22.04/24.04，amd64/arm64，且已启动 systemd / Unsupported remote platform")
+			return nil, errors.New("远程系统不符合安装要求，支持版本见 README / See README for supported versions, CPU architectures and systemd requirements")
 		}
 		return nil, fmt.Errorf("remote setup failed (%v); inspect /var/log/easynodedeck-node-install.log on the node", err)
 	}

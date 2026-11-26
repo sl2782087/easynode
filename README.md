@@ -13,16 +13,20 @@
 | 发行版 | 支持版本 | CPU 架构 |
 | --- | --- | --- |
 | Debian | 12（Bookworm）、13（Trixie） | amd64、arm64 |
-| Ubuntu Server LTS | 22.04（Jammy）、24.04（Noble） | amd64、arm64 |
+| Ubuntu Server LTS | 22.04（Jammy）、24.04（Noble）、26.04（Resolute） | amd64、arm64 |
+| Rocky Linux | 8（8.10）、9、10 | amd64、arm64 |
+| CentOS Stream | 9、10 | amd64、arm64 |
 
-上述四个版本均已在官方 arm64 容器镜像中验证 APT 依赖安装、Python 虚拟环境和 Certbot 的 IP 证书选项。公网端到端验证使用 Debian 12 amd64，覆盖 HTTPS 面板登录、添加节点和客户端订阅。安装器会先检查发行版、版本、架构和 systemd，再用 APT 补齐缺少的依赖。
+表中版本均在 arm64 发行版容器中验证了依赖安装、Python 虚拟环境和 Certbot 的 IP 证书选项。Rocky 8.10 arm64 另在独立 systemd 环境中用本地测试证书验证了面板 HTTPS、服务重启、HY2 节点 UDP 监听和续期定时器启动。新增系统上的公网签发、自动续期和 SELinux enforcing 部署仍待实机验证。公网端到端验证使用 Debian 12 amd64，覆盖 HTTPS 面板登录、添加节点和客户端订阅。安装器会先检查发行版、版本、架构和 systemd，再用 APT 或 DNF 补齐依赖。Rocky 8 使用仅 root 可写的运行时目录向服务提供证书和配置，续期重启会重新载入。
+
+CentOS Linux 7/8 和 CentOS Stream 8 已结束维护。Windows 可作为订阅客户端，原生面板及节点服务尚未移植。
 
 ## 安装与升级
 
 在面板 VPS 的 Bash 终端以 root 身份执行下面的命令，需要预装 curl。安装时可填写公网 IPv4，或填写已经解析到服务器的域名。用户名和密码留空会随机生成。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.3.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
 ```
 
 首次安装完成后，终端会打印 HTTPS 地址和管理员账密。升级现有面板时运行同一条命令，安装器会沿用已有账户、节点和订阅，并重启面板服务。

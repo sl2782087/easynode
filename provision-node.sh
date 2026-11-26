@@ -39,7 +39,10 @@ certdir=$etc/acme/live/node
 if [[ $WITH_TLS == true ]]; then
   acme=$root/acme
   if [[ ! -x "$acme/bin/certbot" ]]; then
-    python3 -m venv "$acme"
+    . /etc/os-release
+    python=python3
+    case "$ID:${VERSION_ID%%.*}" in rocky:8|rocky:9|centos:9) python=python3.11 ;; esac
+    "$python" -m venv "$acme"
     "$acme/bin/pip" -q install 'certbot>=5.4,<7'
   fi
   "$acme/bin/certbot" certonly --config-dir "$etc/acme" --work-dir "$etc/acme-work" --logs-dir "$etc/acme-logs" \
@@ -75,7 +78,6 @@ After=network-online.target
 [Service]
 User=easynodedeck-node
 Group=easynodedeck-node
-LoadCredential=node.json:$etc/node.json
 ExecStart=$core run -c /run/credentials/easynodedeck-node.service/node.json
 Restart=on-failure
 RestartSec=3
@@ -84,8 +86,25 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 UNIT
-if [[ $WITH_TLS == true ]]; then
-  printf 'LoadCredential=cert.pem:%s/fullchain.pem\nLoadCredential=key.pem:%s/privkey.pem\n' "$certdir" "$certdir" >> "$scratch/unit"
+# Use the same runtime paths on both generations of systemd.
+. /etc/os-release
+runtime=/run/credentials/easynodedeck-node.service
+if [[ $ID == rocky && ${VERSION_ID%%.*} == 8 ]]; then
+  cat >> "$scratch/unit" <<UNIT
+ExecStartPre=+/usr/bin/install -d -m 0750 -o root -g easynodedeck-node $runtime
+ExecStartPre=+/usr/bin/install -m 0440 -o root -g easynodedeck-node $etc/node.json $runtime/node.json
+UNIT
+  if [[ $WITH_TLS == true ]]; then
+    cat >> "$scratch/unit" <<UNIT
+ExecStartPre=+/usr/bin/install -m 0440 -o root -g easynodedeck-node $certdir/fullchain.pem $runtime/cert.pem
+ExecStartPre=+/usr/bin/install -m 0440 -o root -g easynodedeck-node $certdir/privkey.pem $runtime/key.pem
+UNIT
+  fi
+else
+  echo "LoadCredential=node.json:$etc/node.json" >> "$scratch/unit"
+  if [[ $WITH_TLS == true ]]; then
+    printf 'LoadCredential=cert.pem:%s/fullchain.pem\nLoadCredential=key.pem:%s/privkey.pem\n' "$certdir" "$certdir" >> "$scratch/unit"
+  fi
 fi
 printf '[Install]\nWantedBy=multi-user.target\n' >> "$scratch/unit"
 if ! cmp -s "$scratch/unit" "$unit" || ! cmp -s "$scratch/node.json" "$etc/node.json" || ! systemctl is-active --quiet easynodedeck-node; then

@@ -4,7 +4,15 @@
 
 [简体中文](README.md) · English
 
-A lightweight, self-hosted panel for local and remote Linux nodes. Combine Shadowsocks, VLESS + REALITY and Hysteria 2 connections in stable subscription URLs and QR codes.
+**Turn your VPS into a proxy node and use one subscription on your phone and computer.**
+
+EasyNodeDeck is for people who run their own proxies on one or a few Linux servers. Setting up a second VPS by hand usually means another SSH session, another set of protocol configs, and another round of importing links on every device. With EasyNodeDeck, you install a panel on the first VPS. That machine can serve as your first node, too.
+
+- **Start with a public IPv4 address.** A domain is optional. The installer handles dependencies and HTTPS certificates and can generate your admin credentials.
+- **Add the next server from your browser.** Enter its SSH details, verify the host key and pick Shadowsocks, VLESS + REALITY or Hysteria 2. The panel installs the node and reuses a matching configuration on repeat deployments.
+- **Import once per device.** Group connections from several servers under one subscription URL. When you change that selection, refresh the same subscription in your client.
+
+[Quick start](#quick-start) · [Supported systems](#supported-systems)
 
 ![Node list showing the local node, egress flags, network names and protocols](assets/panel-preview-en.webp)
 
@@ -15,7 +23,29 @@ A lightweight, self-hosted panel for local and remote Linux nodes. Combine Shado
 
 </details>
 
-Screenshots use the offline demo with fictional servers, documentation IPs and ASNs, and simulated network checks.
+To try the offline demo, download the repository and open [web/index.html](web/index.html) in your browser. Screenshots and previews use fictional data.
+
+## Quick start
+
+Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. Allow TCP 80 and 443 and the ports for your chosen protocols in both the OS firewall and your provider’s security group. [Port reference](#port-reference)
+
+**1. Install the panel.** Run this command on the VPS.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
+```
+
+Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.
+
+**2. Add your first node.** Sign in, open **Nodes → Add node**, select the panel host, give it a name and choose your protocols. When you save, the panel writes the configuration and starts the connections.
+
+**3. Connect a client.** Open **Subscriptions → Create subscription** and select the connections you just added. Paste the URL into Clash Verge Rev on your computer or scan the QR code with Shadowrocket on your iPhone.
+
+## Add another VPS
+
+Choose **Add node → Remote server** in the same panel. Enter its public IPv4 address, SSH port and root password. Verify the SSH host fingerprint and choose **Deploy and save**. The remote machine runs only the node service. Its SSH password is used for this operation only. Once deployment finishes, edit your existing subscription to include the new connections.
+
+The node list identifies the panel host, remote nodes and their egress regions. Open a node to see its egress IP, network name, ASN and reverse DNS. The panel queries the free Ping0 endpoint through the node and caches the result. Choose **Check again** for a fresh reading.
 
 ## Supported systems
 
@@ -28,19 +58,16 @@ Both the panel host and remote nodes provisioned over SSH require a Linux VPS bo
 | Rocky Linux | 8 (8.10), 9, 10 | amd64, arm64 |
 | CentOS Stream | 9, 10 | amd64, arm64 |
 
+<details>
+<summary>Test coverage and compatibility notes</summary>
+
 Package installation, Python virtual environments and Certbot’s IP certificate option were checked in arm64 container images for every version in the table. Rocky 8.10 arm64 also ran the HTTPS panel, a service restart, the HY2 UDP listener and its renewal timer under systemd using a local test certificate. Public issuance, renewal and deployments with SELinux enforcing on the newly added systems still need live validation. Public end-to-end testing used Debian 12 amd64 for HTTPS sign-in, node management and client subscriptions. The installer checks the distribution, version, architecture and systemd before installing missing packages with APT or DNF. On Rocky 8, root stages certificates and node configuration in a protected runtime directory at service start, including restarts after renewal.
 
 CentOS Linux 7/8 and CentOS Stream 8 have reached end of life. Windows can run subscription clients. Native Windows panel and node services are not available.
 
-## Install or upgrade
+</details>
 
-Run the command below as root in a Bash shell on the panel VPS with curl installed. The installer accepts a public IPv4 address or a domain already pointing to the server. Leave the username and password blank to generate credentials.
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
-```
-
-On first install, the terminal prints the HTTPS URL and administrator credentials. To upgrade, rerun the same command. It keeps your existing account, nodes and subscriptions and restarts the panel service.
+## Port reference
 
 | Inbound port | Host | Purpose |
 | --- | --- | --- |
@@ -51,26 +78,27 @@ On first install, the terminal prints the HTTPS URL and administrator credential
 
 Allow the relevant ports in both the OS firewall and your provider’s security group. For domain access, point the DNS record to the panel host before installation.
 
-## Get a working subscription
+## Maintenance
 
-1. Open the HTTPS address printed by the installer and sign in. Initial credentials are also saved to `/etc/easynodedeck/initial-access` with root-only permissions.
-2. In **Nodes**, choose **Add node**, select the panel host or a remote server, name it and select protocols. The panel labels local nodes. Subscription clients also show the local marker (本机) in connection names.
-3. In **Subscriptions**, choose **Create subscription**, select connections and copy the URL or scan the QR code. Import it into Clash Verge Rev or Shadowrocket. Editing the selection keeps the same URL. Use `?format=clash` or `?format=uri` to override client detection.
-4. Open **Account** to change the administrator username or password. Removing a subscription revokes its URL. Clients that already downloaded a connection keep its credentials until the underlying node credentials change.
+| Task | How |
+| --- | --- |
+| Upgrade the panel | Run the installation command again. The installer keeps your account, nodes and subscriptions and restarts the panel service. |
+| Find initial credentials or change a password | As root, read `/etc/easynodedeck/initial-access` for the original credentials. Once signed in, use **Account** to change the username or password. Sessions last 12 hours and survive page reloads and service restarts. |
+| Back up | Store a secure copy of `/var/lib/easynodedeck/state.json`. It contains administrator data, node credentials and subscription URLs. |
+| Check service health | Run `systemctl status easynodedeck` on the panel host. For remote deployment errors, read `/var/log/easynodedeck-node-install.log` on the remote node. |
+| Change local ports or the REALITY handshake domain | Set `SS_PORT`, `REALITY_PORT`, `HY2_PORT` or `REALITY_SNI` in `/etc/easynodedeck/panel.env`, then restart the panel service. |
 
-The node list shows the detected egress region, flag and network name. Open a node for its egress IP, ASN, reverse DNS and check time. The panel queries the free Ping0 endpoint through the node and caches the result. Choose **Check again** to refresh it. Sign-in sessions last 12 hours and survive page reloads and service restarts.
+The panel runs as a dedicated system user. The Go binary embeds the web UI and stores single-admin state in a private JSON file. There is no separate database to deploy.
 
-### Operations
+<details>
+<summary>Subscription formats, removal and reachability</summary>
 
-The service runs as a dedicated system user. Go serves the embedded UI and supervises the local core. Single-administrator state is saved atomically in a private JSON file at `/var/lib/easynodedeck/state.json`. Back it up securely to retain credentials and subscription URLs. Inspect service health with `systemctl status easynodedeck`. Configure protocol ports and the REALITY handshake domain with `SS_PORT`, `REALITY_PORT`, `HY2_PORT` and `REALITY_SNI` in `/etc/easynodedeck/panel.env`, then restart the service.
+- The subscription format is selected automatically for your client. Append `?format=clash` or `?format=uri` to choose one explicitly.
+- Deleting a subscription revokes its download URL. Previously downloaded connections remain usable until their node credentials change.
+- Removing a remote node requires SSH authentication again. The panel stops `easynodedeck-node.service` on that host and removes its connections from subscriptions.
+- **Reachable** means the panel connected to the selected TCP listeners. UDP-only HY2 nodes show the last service status checked over SSH.
 
-### Remote VPS deployment
-
-Enter a public IPv4 address, SSH port and root password. Verify the SSH host fingerprint and choose **Deploy and save**. The target needs systemd and an amd64 or arm64 CPU. HY2 uses a free, publicly reachable TCP port 80 for IP certificate issuance and renewal. Connections use the protocol ports listed above. The remote host runs a dedicated `easynodedeck-node.service`.
-
-Repeating deployment reuses the node identity and matching configuration. The SSH password is used for the current operation only. Removing a remote node requires SSH authentication, stops its service and removes its connections from subscriptions. See `/var/log/easynodedeck-node-install.log` on the remote host for installation errors. Reachability in the node list reflects a check of the selected TCP listeners. UDP-only nodes use the last service check over SSH.
-
-For an offline UI demonstration, open [web/index.html](web/index.html) directly as a local file.
+</details>
 
 ## Contributing
 

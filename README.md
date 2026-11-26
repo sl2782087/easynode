@@ -4,7 +4,15 @@
 
 简体中文 · [English](README.en.md)
 
-从一个面板管理本机和远程 Linux 节点，勾选 Shadowsocks、VLESS + REALITY 和 Hysteria 2 线路即可生成固定订阅地址及二维码。
+**把自己的 VPS 变成代理节点，手机和电脑用同一个订阅。**
+
+易节点是给自己管理一台或几台 VPS 的人做的。手动搭建时，每加一台服务器，都要再登录一次、装代理程序、写协议配置，再把新线路发到每台设备。易节点把这些事放进同一个面板。第一台 VPS 装好就能当节点，以后加机器也在这里操作。
+
+- **开箱就能用。** 有公网 IPv4 就可以安装，域名可选。安装器会补齐依赖、申请 HTTPS 证书，账号密码留空即可自动生成。
+- **加机器，在网页里完成。** 填写另一台 VPS 的 SSH 信息，核对主机指纹，勾选 Shadowsocks、VLESS + REALITY 或 Hysteria 2。面板负责安装和配置，已有相同配置会直接复用。
+- **订阅只需导入一次。** 把几台机器的线路放进同一个订阅。以后换节点或增减线路，在面板里改好，手机和电脑刷新原订阅即可。
+
+[快速开始](#快速开始) · [支持的系统](#支持的系统)
 
 ![节点列表，显示本机标识、出口地区旗帜、网络名称和协议](assets/panel-preview.webp)
 
@@ -15,7 +23,29 @@
 
 </details>
 
-截图来自离线演示。服务器、出口 IP、网络名称、ASN 和检测结果均为模拟数据。
+将仓库下载到本机后，直接用浏览器打开 [web/index.html](web/index.html) 即可试用。截图和预览均使用模拟数据。
+
+## 快速开始
+
+准备一台有公网 IPv4 的 Linux VPS，以 root 登录 Bash，确认已安装 curl。在系统防火墙和云安全组放行 TCP 80、443，以及准备使用的协议端口。[端口清单](#端口清单)
+
+**1. 安装面板。** 在 VPS 上执行下面的命令。
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
+```
+
+提示的公网 IP 正确就按回车，也可以填写已解析到这台 VPS 的域名。安装完成后，终端会打印 HTTPS 地址、用户名和密码。
+
+**2. 添加第一个节点。** 浏览器打开面板并登录，在「节点 → 添加节点」选择「本机」，填个容易辨认的名字，勾选协议并保存。面板会生成配置并启动线路。
+
+**3. 在客户端导入。** 打开「订阅 → 创建订阅」，勾选刚才的线路。在电脑的 Clash Verge Rev 中粘贴订阅地址，或用 iPhone 上的 Shadowrocket 扫描二维码。
+
+## 添加另一台 VPS
+
+在同一面板选择「添加节点 → 远程服务器」，输入公网 IPv4、SSH 端口和 root 密码。核对 SSH 主机指纹后点击「部署并保存」。远程机只运行节点服务，SSH 密码仅用于本次操作。部署完成后，编辑已有订阅，勾选新线路即可。
+
+列表会标出本机、远程节点及出口地区。想确认流量从哪里出去，可以打开节点详情查看出口 IP、网络名称、ASN 和反向域名。面板通过节点线路查询 Ping0 免费接口并缓存结果，点击「重新检测」可刷新。
 
 ## 支持的系统
 
@@ -28,19 +58,16 @@
 | Rocky Linux | 8（8.10）、9、10 | amd64、arm64 |
 | CentOS Stream | 9、10 | amd64、arm64 |
 
+<details>
+<summary>测试范围与兼容性说明</summary>
+
 表中版本均在 arm64 发行版容器中验证了依赖安装、Python 虚拟环境和 Certbot 的 IP 证书选项。Rocky 8.10 arm64 另在独立 systemd 环境中用本地测试证书验证了面板 HTTPS、服务重启、HY2 节点 UDP 监听和续期定时器启动。新增系统上的公网签发、自动续期和 SELinux enforcing 部署仍待实机验证。公网端到端验证使用 Debian 12 amd64，覆盖 HTTPS 面板登录、添加节点和客户端订阅。安装器会先检查发行版、版本、架构和 systemd，再用 APT 或 DNF 补齐依赖。Rocky 8 使用仅 root 可写的运行时目录向服务提供证书和配置，续期重启会重新载入。
 
 CentOS Linux 7/8 和 CentOS Stream 8 已结束维护。Windows 可作为订阅客户端，原生面板及节点服务尚未移植。
 
-## 安装与升级
+</details>
 
-在面板 VPS 的 Bash 终端以 root 身份执行下面的命令，需要预装 curl。安装时可填写公网 IPv4，或填写已经解析到服务器的域名。用户名和密码留空会随机生成。
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
-```
-
-首次安装完成后，终端会打印 HTTPS 地址和管理员账密。升级现有面板时运行同一条命令，安装器会沿用已有账户、节点和订阅，并重启面板服务。
+## 端口清单
 
 | 入站端口 | 在哪台机器放行 | 用途 |
 | --- | --- | --- |
@@ -51,26 +78,27 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.
 
 端口同时受 VPS 系统防火墙和服务商安全组控制。若使用域名，请先将 DNS 记录指向面板主机。
 
-## 生成可用订阅
+## 日常维护
 
-1. 打开安装结束时显示的 HTTPS 地址并登录。初始账密也会保存在仅 root 可读的 `/etc/easynodedeck/initial-access`。
-2. 在「节点」点击「添加节点」，选择本机或远程服务器，填写名称并勾选协议。本机线路在面板和订阅中均标记为「本机」。
-3. 在「订阅」点击「创建订阅」，选择线路，复制地址或扫描二维码，在 Clash Verge Rev 或 Shadowrocket 中导入。调整线路后刷新原地址即可。需要指定输出格式时，在地址末尾加 `?format=clash` 或 `?format=uri`。
-4. 在「用户中心」可以修改管理员用户名和密码。删除订阅会撤销下载地址，已下载的节点凭据会继续有效，直至底层节点凭据更换。
+| 要做什么 | 在哪里操作 |
+| --- | --- |
+| 升级面板 | 重新执行上面的安装命令，安装器会保留账户、节点和订阅，并重启服务。 |
+| 找回初始账密或修改密码 | root 可读取 `/etc/easynodedeck/initial-access` 查看首次安装的账密。登录后可在「用户中心」修改用户名和密码。会话有效期为 12 小时，支持刷新和服务重启。 |
+| 备份 | 安全保存 `/var/lib/easynodedeck/state.json`，其中包含管理员数据、节点凭据和订阅地址。 |
+| 检查服务 | 在面板主机执行 `systemctl status easynodedeck`。远程部署失败时查看远程机上的 `/var/log/easynodedeck-node-install.log`。 |
+| 修改本机线路端口或 REALITY 握手域名 | 在 `/etc/easynodedeck/panel.env` 设置 `SS_PORT`、`REALITY_PORT`、`HY2_PORT` 或 `REALITY_SNI`，然后重启面板服务。 |
 
-节点列表显示检测到的出口地区、旗帜和网络名称。打开详情可以查看出口 IP、ASN、反向域名和检测时间。面板通过节点线路访问 Ping0 免费接口并缓存结果，可按需重新检测。登录会话有效期为 12 小时，刷新页面或重启服务后仍然有效。
+面板以独立系统用户运行。Go 程序内嵌网页，单管理员数据保存在一个私有 JSON 文件里，无需单独部署数据库。
 
-### 运维
+<details>
+<summary>订阅格式、移除节点和状态说明</summary>
 
-面板以独立系统用户运行。Go 程序内嵌网页并管理本机节点进程。单管理员数据以私有 JSON 文件原子保存至 `/var/lib/easynodedeck/state.json`，备份此文件可以保留节点凭据和订阅地址。用 `systemctl status easynodedeck` 检查运行状态。在 `/etc/easynodedeck/panel.env` 中可指定 `SS_PORT`、`REALITY_PORT`、`HY2_PORT` 和 `REALITY_SNI`，修改后重启服务。
+- 订阅默认按客户端选择格式。手动指定时，在地址末尾加 `?format=clash` 或 `?format=uri`。
+- 删除订阅会撤销下载地址。客户端已下载的线路仍能使用，直到底层节点凭据更换。
+- 移除远程节点时需要再次进行 SSH 验证。面板会停止远程机上的 `easynodedeck-node.service`，并从订阅中移除相关线路。
+- 「端口可达」表示面板能连接节点所选的 TCP 监听端口。纯 HY2 节点显示最近一次通过 SSH 检查的服务状态。
 
-### 远程 VPS
-
-输入目标机公网 IPv4、SSH 端口和 root 密码，核对 SSH 主机指纹后点击「部署并保存」。自定义 SSH 端口可用。远程机需有 systemd，支持 amd64 或 arm64。启用 HY2 时需要公网可达且空闲的 TCP 80 来签发和续期 IP 证书。线路使用与上文相同的默认协议端口。远程节点无需运行管理网页。
-
-安装器单独管理 `easynodedeck-node.service`，重复部署会复用该节点的身份和相同配置。SSH 密码仅用于本次操作。移除远程节点需要再次输入密码，会停止该服务并从订阅移除其线路。排查部署问题可读取目标机的 `/var/log/easynodedeck-node-install.log`。列表中「端口可达」表示面板已连通所选 TCP 端口；纯 HY2 节点使用最近一次 SSH 服务检查结果。
-
-浏览器直接打开本地 [web/index.html](web/index.html) 可试用离线设计预览。
+</details>
 
 ## 参与
 

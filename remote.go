@@ -20,6 +20,9 @@ import (
 //go:embed provision-node.sh
 var nodeInstaller string
 
+//go:embed install.sh
+var panelInstaller string
+
 type Remote struct {
 	ID, Host, Fingerprint, SNI string
 	Port                       int
@@ -127,6 +130,10 @@ func remoteScript(c *ssh.Client, script string) ([]byte, error) {
 		return nil, errors.New("Invalid remote response")
 	}
 	if err = s.Wait(); err != nil {
+		var exit *ssh.ExitError
+		if errors.As(err, &exit) && exit.ExitStatus() == 78 {
+			return nil, errors.New("需要 Debian 12/13 或 Ubuntu 22.04/24.04，amd64/arm64，且已启动 systemd / Unsupported remote platform")
+		}
 		return nil, fmt.Errorf("remote setup failed (%v); inspect /var/log/easynodedeck-node-install.log on the node", err)
 	}
 	return raw, nil
@@ -212,6 +219,14 @@ if test -f /etc/systemd/system/easynodedeck-node-renew.timer; then systemctl dis
 			return nil, err
 		}
 	} else {
+		mode := "--prepare-node"
+		if slices.Contains(lines, 2) {
+			mode = "--prepare-node-tls"
+		}
+		// Redirect package-manager output before it reaches the bounded SSH response.
+		if _, err = remoteScript(client, "umask 077\nexec >>/var/log/easynodedeck-node-install.log 2>&1\nset -- "+mode+"\n"+panelInstaller); err != nil {
+			return nil, err
+		}
 		seed, err := newNode()
 		if err != nil {
 			return nil, err

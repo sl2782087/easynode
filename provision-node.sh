@@ -39,12 +39,7 @@ certdir=$etc/acme/live/node
 if [[ $WITH_TLS == true ]]; then
   acme=$root/acme
   if [[ ! -x "$acme/bin/certbot" ]]; then
-    export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l
-    if ! python3 -m venv "$acme"; then
-      apt-get -o Acquire::Retries=2 -qq update
-      apt-get -qq install -y --no-install-recommends python3-venv
-      python3 -m venv "$acme"
-    fi
+    python3 -m venv "$acme"
     "$acme/bin/pip" -q install 'certbot>=5.4,<7'
   fi
   "$acme/bin/certbot" certonly --config-dir "$etc/acme" --work-dir "$etc/acme-work" --logs-dir "$etc/acme-logs" \

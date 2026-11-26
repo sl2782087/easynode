@@ -2,11 +2,40 @@
 set -euo pipefail
 umask 077
 [[ $(id -u) == 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+supported='Debian 12/13, Ubuntu 22.04/24.04 LTS (amd64/arm64)'
+[[ -r /etc/os-release ]] || { echo "Supported: $supported" >&2; exit 78; }
+. /etc/os-release
+case "${ID:-}:${VERSION_ID:-}" in
+  debian:12|debian:13|ubuntu:22.04|ubuntu:24.04) ;;
+  *) echo "Unsupported system: ${PRETTY_NAME:-unknown}. Supported: $supported" >&2; exit 78 ;;
+esac
+[[ -d /run/systemd/system ]] && command -v systemctl >/dev/null || { echo 'A running systemd host is required.' >&2; exit 78; }
 case "$(uname -m)" in
   x86_64) arch=amd64; core_sha=bb99cabf47694625db421ee17898f36cdc1f9c2cb5decf65b12bac8d8437e842 ;;
   aarch64) arch=arm64; core_sha=d7fab87b921933eb281d8ee7bd5377cdd8228089f1f7c807c9363a6a2329286c ;;
-  *) echo 'Supported architectures: amd64, arm64' >&2; exit 1 ;;
+  *) echo 'Supported architectures: amd64, arm64' >&2; exit 78 ;;
 esac
+# The panel also runs this preflight on remote nodes before creating their identity.
+packages=(ca-certificates curl tar gzip openssl util-linux passwd)
+case "${1:-}" in
+  '') packages+=(iproute2 python3-venv) ;;
+  --prepare-node-tls) packages+=(python3-venv) ;;
+  --prepare-node) ;;
+  *) echo "Unknown argument: $1" >&2; exit 2 ;;
+esac
+missing=()
+for package in "${packages[@]}"; do
+  if [[ $(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) != installed ]]; then
+    missing+=("$package")
+  fi
+done
+if (( ${#missing[@]} )); then
+  (umask 022
+   export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l
+   apt-get -o Acquire::Retries=2 -qq update
+   apt-get -o Acquire::Retries=2 -qq install -y --no-install-recommends "${missing[@]}")
+fi
+[[ -z ${1:-} ]] || exit 0
 root=/opt/easynodedeck
 etc=/etc/easynodedeck
 state=/var/lib/easynodedeck
@@ -36,7 +65,7 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.2.0
+release=https://github.com/sl2782087/easynodedeck/releases/download/v0.3.0
 if [[ -z ${DECK_BINARY:-} ]]; then
   asset=easynodedeck-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"
@@ -56,9 +85,6 @@ else
   core=$root/sing-box
 fi
 if [[ ! -x "$acme/bin/certbot" ]]; then
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get -qq update
-  apt-get -qq install -y --no-install-recommends python3-venv
   python3 -m venv "$acme"
   "$acme/bin/pip" -q install 'certbot>=5.4,<7'
 fi

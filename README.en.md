@@ -6,15 +6,35 @@
 
 A lightweight, self-hosted panel for local and remote Linux nodes. Combine Shadowsocks, VLESS + REALITY and Hysteria 2 connections in stable subscription URLs and QR codes.
 
-## Install
+## Supported systems
 
-Run this command as root on Debian 12 (amd64 or arm64). The installer accepts a public IPv4 address or a domain already pointing to the server. Leave the username and password blank to generate credentials.
+Both the panel host and remote nodes provisioned over SSH require a Linux VPS booted with systemd.
+
+| Distribution | Supported versions | CPU architectures |
+| --- | --- | --- |
+| Debian | 12 (Bookworm), 13 (Trixie) | amd64, arm64 |
+| Ubuntu Server LTS | 22.04 (Jammy), 24.04 (Noble) | amd64, arm64 |
+
+APT dependencies, Python virtual environments and Certbot’s IP certificate option were checked in the official arm64 container images for all four versions. Public end-to-end testing used Debian 12 amd64 for HTTPS sign-in, node management and client subscriptions. The installer checks the distribution, version, architecture and systemd before installing missing packages with APT.
+
+## Install or upgrade
+
+Run the command below as root in a Bash shell on the panel VPS with curl installed. The installer accepts a public IPv4 address or a domain already pointing to the server. Leave the username and password blank to generate credentials.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.2.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.3.0/install.sh)
 ```
 
-Make TCP 80 available for certificate validation and renewal and TCP 443 for the panel. The default data ports are 30443 TCP/UDP (SS), 30444 TCP (REALITY) and 30445 UDP (HY2). Allow the protocols you enable through your provider firewall. The installer obtains a trusted certificate and sets up a systemd renewal timer.
+On first install, the terminal prints the HTTPS URL and administrator credentials. To upgrade, rerun the same command. It keeps your existing account, nodes and subscriptions and restarts the panel service.
+
+| Inbound port | Host | Purpose |
+| --- | --- | --- |
+| TCP 80 | Panel host and remote nodes with HY2 | Certificate issuance and automatic renewal. Certbot must be able to bind this publicly reachable port. |
+| TCP 443 | Panel host | HTTPS panel and subscriptions |
+| Configured SSH TCP port | Remote node, reachable from the panel host | Host key verification and provisioning |
+| 30443 TCP/UDP, 30444 TCP, 30445 UDP | Each node running the corresponding protocol | Shadowsocks, VLESS + REALITY and Hysteria 2 respectively |
+
+Allow the relevant ports in both the OS firewall and your provider’s security group. For domain access, point the DNS record to the panel host before installation.
 
 ## Get a working subscription
 
@@ -22,6 +42,10 @@ Make TCP 80 available for certificate validation and renewal and TCP 443 for the
 2. In **Nodes**, choose **Add node**, select the panel host or a remote server, name it and select protocols. The panel labels local nodes. Subscription clients also show the local marker (本机) in connection names.
 3. In **Subscriptions**, choose **Create subscription**, select connections and copy the URL or scan the QR code. Import it into Clash Verge Rev or Shadowrocket. Editing the selection keeps the same URL. Use `?format=clash` or `?format=uri` to override client detection.
 4. Open **Account** to change the administrator username or password. Removing a subscription revokes its URL. Clients that already downloaded a connection keep its credentials until the underlying node credentials change.
+
+The node list shows the detected egress region, flag and network name. Open a node for its egress IP, ASN, reverse DNS and check time. The panel queries the free Ping0 endpoint through the node and caches the result. Choose **Check again** to refresh it. Sign-in sessions last 12 hours and survive page reloads and service restarts.
+
+### Operations
 
 The service runs as a dedicated system user. Go serves the embedded UI and supervises the local core. Single-administrator state is saved atomically in a private JSON file at `/var/lib/easynodedeck/state.json`. Back it up securely to retain credentials and subscription URLs. Inspect service health with `systemctl status easynodedeck`. Configure protocol ports and the REALITY handshake domain with `SS_PORT`, `REALITY_PORT`, `HY2_PORT` and `REALITY_SNI` in `/etc/easynodedeck/panel.env`, then restart the service.
 

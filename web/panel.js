@@ -26,7 +26,40 @@ let timer;
 const t = (zh, english) => en ? english : zh;
 const isSubs = () => location.hash === "#subscriptions";
 const allLines = () => nodes.flatMap(n=>n.lines.map(p=>({key:n.id+"/"+p,label:n.name+" · "+protocols[p]})));
-const subUrl = sub => "https://demo.invalid/s/"+sub.id;
+const live = location.protocol !== "file:";
+const subUrl = sub => (live ? location.origin : "https://demo.invalid")+"/s/"+sub.id;
+let signedIn=false;
+async function request(path, data) {
+  const options=data ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)} : {};
+  const res=await fetch("/api/"+path,options);
+  if (!res.ok) {
+    if(res.status===401 && path!=="login") {signedIn=false;loginForm();}
+    throw Error((await res.text()).trim());
+  }
+  if(res.status===204) return;
+  const state=await res.json();
+  nodes.splice(0,nodes.length,...state.nodes);
+  subs.splice(0,subs.length,...state.subs);
+  demoAccount.username=state.user;
+  signedIn=true;
+}
+async function saveLive(path,data,done) {
+  const buttons=[...$("body").querySelectorAll("button")];
+  buttons.forEach(b=>b.disabled=true);
+  try {await request(path,data);renderList();done();}
+  catch(e) {notice(e.message);}
+  finally {buttons.forEach(b=>b.disabled=false);}
+}
+function loginForm(){
+  nodes.length=subs.length=0;
+  renderList();
+  dialog(t("管理员登录","Administrator sign-in"),'<form id="login"><label>'+t("用户名","Username")+'<input class="field" name="user" required autocomplete="username"></label><label>'+t("密码","Password")+'<input class="field" type="password" name="password" required autocomplete="current-password"></label><button class="primary">'+t("登录","Sign in")+'</button></form>');
+  $("close").hidden=true;
+  $("login").onsubmit=e=>{
+    e.preventDefault();const f=e.currentTarget;
+    saveLive("login",{User:f.user.value,Password:f.password.value},()=>{$("close").hidden=false;$("dialog").close();});
+  };
+}
 
 function notice(message) {
   clearTimeout(timer);
@@ -43,7 +76,7 @@ function dialog(title,content) {
 function renderPage() {
   const sub=isSubs();
   document.documentElement.lang=en?"en":"zh-CN";
-  $("preview").textContent=t("设计预览","Design preview");
+  $("preview").textContent=live?t("管理面板","Control panel"):t("设计预览","Design preview");
   $("language").textContent=en?"中文":"EN";
   const accountLabel=t("用户中心","Account");
   $("account").innerHTML=icon("user")+"<span>"+accountLabel+"</span>";
@@ -72,6 +105,7 @@ function renderPage() {
 }
 function renderList() {
   const sub=isSubs();
+  if(live && !sub) $("create").innerHTML=icon(nodes.length?"nodes":"plus")+(nodes.length?t("管理本机","Manage local node"):t("添加本机节点","Add local node"));
   const stats=sub ? [[subs.length,t("订阅总数","Subscriptions")],[new Set(subs.flatMap(s=>s.lines)).size,t("已选线路","Included lines")],[allLines().length,t("可选线路","Available lines")]]
     : [[nodes.length,t("节点总数","Total nodes")],[nodes.filter(n=>n.online===true).length,t("在线节点","Online nodes")],[allLines().length,t("协议线路","Connections")],[subs.length,t("订阅","Subscriptions")]];
   $("stats").innerHTML=stats.map(([value,label])=>'<div class="stat"><strong>'+value+'</strong><span>'+label+'</span></div>').join("");
@@ -86,7 +120,7 @@ function renderList() {
     const status=item.online===true?t("在线","Online"):item.online===false?t("离线","Offline"):t("待检测","Unchecked");
     const state=sub?item.lines.length+' '+t("条","lines"):'<span class="state '+(item.online?"":"offline")+'"><i class="dot"></i>'+status+'</span>';
     const kind=sub?t("通用订阅","Universal"):item.local?t("本机","Local"):t("远程","Remote");
-    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+'</b><small>'+esc(sub?"demo.invalid/s/"+item.id:item.host)+'</small></div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
+    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small></div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
   }).join("");
   if (!data.length) $("list").insertAdjacentHTML("beforeend",'<p class="empty">'+t("没有符合条件的记录","No matching records")+'</p>');
   $("count").textContent=t("显示 "+data.length+" 项，共 "+(sub?subs:nodes).length+" 项","Showing "+data.length+" of "+(sub?subs:nodes).length);
@@ -94,7 +128,7 @@ function renderList() {
 function afterSave() {
   $("dialog").close();
   renderList();
-  notice(t("已更新预览","Preview updated"));
+  notice(live?t("已保存","Saved"):t("已更新预览","Preview updated"));
 }
 function editNode(n) {
   const field=(label,name,value,attrs="")=>'<label>'+label+'<input class="field" name="'+name+'" value="'+esc(value)+'" '+attrs+'></label>';
@@ -104,9 +138,10 @@ function editNode(n) {
     field(t("SSH 用户名","SSH username"),"user",n?.user||"root",'maxlength="60"')+
     field(t("SSH 密码","SSH password"),"pass","","disabled placeholder='"+t("预览模式无需凭据","Credentials disabled in preview")+"'")+'</div>'+
     '<fieldset><legend>'+t("协议线路","Connections")+'</legend>'+protocols.map((p,i)=>'<label class="choice"><input name="line" type="checkbox" value="'+i+'" '+((n?.lines||[1]).includes(i)?"checked":"")+'>'+p+'</label>').join("")+'</fieldset>'+
-    '<small>'+t("示例数据仅在当前页面保留。","Sample changes last until the page is reloaded.")+'</small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary">'+t("保存预览","Save preview")+'</button></div></form>');
+    '<small>'+(live?t("使用独立的本机节点服务。","Uses a dedicated local node service."):t("示例数据仅在当前页面保留。","Sample changes last until the page is reloaded."))+'</small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary">'+(live?t("保存节点","Save node"):t("保存预览","Save preview"))+'</button></div></form>');
   const f=$("editor");
-  f.mode.value=n?.local?"local":"remote";
+  f.mode.value=live||n?.local?"local":"remote";
+  if(live) f.mode.disabled=true;
   function mode() {
     const local=f.mode.value==="local";
     $("remote").hidden=local;
@@ -123,6 +158,7 @@ function editNode(n) {
     const lines=[...f.querySelectorAll("[name=line]:checked")].map(input=>Number(input.value));
     if(!lines.length || !name || !host) return notice(t("请填写名称、地址并选择协议","Enter a name, address and protocol"));
     if(local && nodes.some(other=>other.local && other!==n)) return notice(t("本机已经在节点列表中","The panel host is already listed"));
+    if(live) return saveLive("node",{Name:name,Lines:lines.map(String)},afterSave);
     const item=n||{id:"node-"+(++sequence)};
     if(!n || Boolean(n.local)!==local || n.host!==host) item.online=null;
     Object.assign(item,{name,host,local,port:Number(f.port.value),user:f.user.value,lines});
@@ -136,9 +172,10 @@ function pruneLines() {
   for(const sub of subs) sub.lines=sub.lines.filter(key=>keys.has(key));
 }
 function confirmRemove(item,sub) {
-  dialog(t("确认移除","Confirm removal"),'<p>'+esc(item.name)+'</p><p class="secondary">'+(sub?t("该示例订阅将从列表中移除。","This sample subscription will be removed."):t("此节点的线路也将从预览订阅中移除。","Its connections will also be removed from preview subscriptions."))+'</p><div class="actions"><button class="quiet" id="back">'+t("取消","Cancel")+'</button><button class="primary" id="confirm">'+t("移除","Remove")+'</button></div>');
+  dialog(t("确认移除","Confirm removal"),'<p>'+esc(item.name)+'</p><p class="secondary">'+(sub?t("该订阅链接将失效。","This subscription URL will stop working."):t("此节点的线路也将从订阅中移除。","Its connections will also be removed from subscriptions."))+'</p><div class="actions"><button class="quiet" id="back">'+t("取消","Cancel")+'</button><button class="primary" id="confirm">'+t("移除","Remove")+'</button></div>');
   $("back").onclick=()=>sub?showSub(item):editNode(item);
   $("confirm").onclick=()=>{
+    if(live) return saveLive(sub?"sub/delete":"node/delete",{ID:item.id},afterSave);
     const items=sub?subs:nodes;
     items.splice(items.indexOf(item),1);pruneLines();afterSave();
   };
@@ -152,6 +189,7 @@ function editSub(s) {
     const f=event.target, name=f.elements.namedItem("name").value.trim();
     const selected=[...f.querySelectorAll(":checked")].map(input=>input.value);
     if(!name||!selected.length) return notice(t("请填写名称并至少选择一条线路","Enter a name and select a connection"));
+    if(live) return saveLive("sub",{ID:s?.id||"",Name:name,Lines:selected},()=>showSub(s?subs.find(i=>i.id===s.id):subs.at(-1)));
     const sub=s||{id:"demo-"+(++sequence)};
     Object.assign(sub,{name,lines:selected});
     if(!s) subs.push(sub);
@@ -161,7 +199,7 @@ function editSub(s) {
 function showSub(s) {
   const url=subUrl(s), qr=qrcode(0,"M");
   qr.addData(url);qr.make();
-  dialog(s.name,'<div class="form-stack"><p class="secondary">'+t("示例订阅地址仅供设计预览。","This sample URL is for design preview only.")+'</p><img class="qr" alt="'+t("示例订阅二维码","Sample subscription QR code")+'" src="'+qr.createDataURL(5,20)+'"><input id="url" class="field" readonly aria-label="'+t("订阅地址","Subscription URL")+'" value="'+esc(url)+'"><div class="actions"><button class="quiet" id="remove">'+t("移除","Remove")+'</button><button class="quiet" id="edit">'+t("编辑线路","Edit connections")+'</button><button class="primary" id="copy">'+t("复制链接","Copy URL")+'</button></div></div>');
+  dialog(s.name,'<div class="form-stack"><p class="secondary">'+(live?t("在 Clash Verge Rev 或 Shadowrocket 中导入此链接。","Import this link in Clash Verge Rev or Shadowrocket."):t("示例订阅地址仅供设计预览。","This sample URL is for design preview only."))+'</p><img class="qr" alt="'+t("订阅二维码","Subscription QR code")+'" src="'+qr.createDataURL(5,20)+'"><input id="url" class="field" readonly aria-label="'+t("订阅地址","Subscription URL")+'" value="'+esc(url)+'"><div class="actions"><button class="quiet" id="remove">'+t("移除","Remove")+'</button><button class="quiet" id="edit">'+t("编辑线路","Edit connections")+'</button><button class="primary" id="copy">'+t("复制链接","Copy URL")+'</button></div></div>');
   $("edit").onclick=()=>editSub(s);
   $("remove").onclick=()=>confirmRemove(s,true);
   $("copy").onclick=async()=>{
@@ -178,7 +216,8 @@ function accountHome() {
       <button class="quiet" id="rename">${t("修改用户名","Change username")}</button></div>
     <div class="account-row"><div><small>${t("登录密码","Password")}</small><strong>••••••••</strong></div>
       <button class="quiet" id="rekey">${t("修改密码","Change password")}</button></div>
-    <small>${t("演示账号仅在当前页面生效，刷新后重置。","This demo account resets when you reload the page.")}</small></div>`);
+    <small>${live?'<button class="quiet" id="logout">'+t("退出登录","Sign out")+'</button>':t("演示账号仅在当前页面生效，刷新后重置。","This demo account resets when you reload the page.")}</small></div>`);
+  if(live) $("logout").onclick=()=>saveLive("logout",{},()=>{signedIn=false;loginForm();});
   $("rename").onclick=()=>editAccount(false);
   $("rekey").onclick=()=>editAccount(true);
 }
@@ -189,7 +228,7 @@ async function previewDigest(value) {
 function editAccount(password) {
   const title=password?t("修改密码","Change password"):t("修改用户名","Change username");
   const passwordField=(label,name,attrs="")=>`<label>${label}<input class="field" type="password" name="${name}" required autocomplete="off" ${attrs}></label>`;
-  const hint=demoAccount.passwordDigest ? t("使用刚设置的演示密码。","Use your updated demo password.")
+  const hint=live?t("请输入当前管理员密码。","Enter your current administrator password."):demoAccount.passwordDigest ? t("使用刚设置的演示密码。","Use your updated demo password.")
     : t("当前演示密码为 Deck-preview。","The current demo password is Deck-preview.");
   dialog(title,`<form id="account-form" autocomplete="off">
     <small>${hint}</small>
@@ -203,6 +242,11 @@ function editAccount(password) {
   $("account-form").onsubmit=async event=>{
     event.preventDefault();
     const f=event.currentTarget;
+    if(live){
+      if(password && f.next.value!==f.confirmation.value) return notice(t("两次输入的新密码不一致","Passwords do not match"));
+      if(!password && !f.username.value.trim()) return notice(t("请输入用户名","Enter a username"));
+      return saveLive("account",password?{Current:f.current.value,Password:f.next.value}:{Current:f.current.value,User:f.username.value.trim()},()=>{accountHome();notice(t("已更新","Updated"));});
+    }
     const valid=demoAccount.passwordDigest ? await previewDigest(f.current.value)===demoAccount.passwordDigest : f.current.value===initialDemoPassword;
     if(!valid) return notice(t("当前密码不正确","Incorrect current password"));
     if(password) {
@@ -217,8 +261,9 @@ function editAccount(password) {
     notice(password?t("演示密码已更新","Demo password updated"):t("用户名已更新","Username updated"));
   };
 }
+$("dialog").addEventListener("cancel",e=>{if(live&&!signedIn)e.preventDefault();});
 $("account").onclick=accountHome;
-$("create").onclick=()=>isSubs()?editSub():editNode();
+$("create").onclick=()=>isSubs()?editSub():editNode(live?nodes[0]:undefined);
 $("close").onclick=()=>$("dialog").close();
 $("dialog").addEventListener("close",()=>{if(!$("dialog").open) $("body").replaceChildren();});
 $("search").oninput=renderList;
@@ -231,5 +276,7 @@ $("list").onclick=event=>{
   if(isSubs()) showSub(subs.find(s=>s.id===id));
   else editNode(nodes.find(n=>n.id===id));
 };
-window.addEventListener("hashchange",()=>{$("dialog").close();$("search").value="";renderPage();});
+window.addEventListener("hashchange",()=>{if(live&&!signedIn){loginForm();return;}$("dialog").close();$("search").value="";renderPage();});
+if(live){nodes.length=subs.length=0;}
 renderPage();
+if(live) request("state").then(renderList).catch(()=>loginForm());

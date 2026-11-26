@@ -4,25 +4,30 @@
 
 简体中文 · [English](README.en.md)
 
-为个人 VPS 设计的轻量自托管代理面板。在一个页面管理本机和远程服务器，把选中的线路分享给 Clash Verge Rev 或 Shadowrocket。
+在自己的 Linux 服务器上运行节点，勾选线路即可生成订阅。当前本机节点版支持 Shadowsocks、VLESS + REALITY 和 Hysteria 2，提供固定订阅地址及二维码。
 
-**开发状态**　项目筹备中。首个可安装版本的范围如下。
+## 安装
 
-### 面板设计预览
+在 Debian 12（amd64 或 arm64）上以 root 身份执行。安装时可填写公网 IPv4，或填写已经解析到服务器的域名。用户名和密码留空会随机生成。
 
-下载仓库后，用浏览器打开 [web/index.html](web/index.html)。可以切换中英文、编辑示例节点、勾选线路和预览订阅二维码。页面在本地运行，刷新后恢复示例数据。
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.1.0/install.sh)
+```
+
+TCP 80 用于证书验证和续期，TCP 443 用于管理面板和订阅。默认线路端口为 SS 30443 TCP/UDP、REALITY 30444 TCP、HY2 30445 UDP。云防火墙需要放行所选协议对应的端口。安装器会申请受信任证书并配置 systemd 自动续期。
+
+## 生成可用订阅
+
+1. 打开安装结束时显示的 HTTPS 地址并登录。初始账密也会保存在仅 root 可读的 `/etc/easynodedeck/initial-access`。
+2. 在「节点」点击「添加本机节点」，填写名称并勾选协议。保存后启动独立的 sing-box 实例。重复保存沿用原有凭据，机器上的其他服务可继续运行。
+3. 在「订阅」点击「创建订阅」，选择线路，复制地址或扫描二维码，在 Clash Verge Rev 或 Shadowrocket 中导入。调整线路后刷新原地址即可。需要指定输出格式时，在地址末尾加 `?format=clash` 或 `?format=uri`。
+4. 在「用户中心」可以修改管理员用户名和密码。删除订阅会撤销下载地址，已下载的节点凭据会继续有效，直至底层节点凭据更换。
+
+面板以独立系统用户运行。Go 程序内嵌网页并管理本机节点进程。单管理员数据以私有 JSON 文件原子保存至 `/var/lib/easynodedeck/state.json`，备份此文件可以保留节点凭据和订阅地址。用 `systemctl status easynodedeck` 检查运行状态。在 `/etc/easynodedeck/panel.env` 中可指定 `SS_PORT`、`REALITY_PORT`、`HY2_PORT` 和 `REALITY_SNI`，修改后重启服务。
+
+远程 SSH 部署和第三方线路导入留待后续版本。浏览器直接打开本地 [web/index.html](web/index.html) 可试用离线设计预览。
 
 ![节点管理面板预览](assets/panel-preview.webp)
-
-## 第一版准备做什么
-
-1. **安装面板**　在 Linux 服务器执行一条命令。可指定管理员账密，留空则随机生成。完成后显示登录地址和初始账密。默认使用公网 IP，域名可在安装时填写或稍后绑定。
-2. **添加节点**　选择本机或填写远程 SSH 连接信息，再选择 Shadowsocks、VLESS + REALITY 或 Hysteria 2。一台服务器可承载多条线路。重新添加由面板部署的节点时，保留现有凭据和配置。
-3. **生成订阅**　勾选线路，获取固定的订阅地址及二维码。调整线路后，客户端刷新原订阅即可同步。已有第三方节点可通过分享链接加入订阅。
-
-## 实现方向
-
-管理面板计划使用 Go、内嵌网页和 SQLite。SSH 负责远程部署，由 systemd 管理节点上的 sing-box。面板机可单独承担管理任务，也可启用本机节点。首版将以 1 核、512 MB 内存的 Linux VPS 作为纯面板验收环境，实际占用随首版公布。
 
 ## 参与
 

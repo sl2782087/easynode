@@ -38,6 +38,7 @@ type App struct {
 	reset                                     time.Time
 	remoteDeploy                              sync.Mutex
 	reachability                              map[string]portCheck
+	checking                                  map[string]bool
 }
 
 func env(key, fallback string) string {
@@ -105,6 +106,7 @@ func main() {
 		log.Print(err)
 	}
 	go a.monitorRemotes()
+	go a.fillMissingNetworks()
 	go func() {
 		for range time.Tick(30 * time.Second) {
 			a.Lock()
@@ -221,7 +223,15 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 		return
 	}
-	if strings.HasPrefix(path, "remote/") {
+	refreshID := ""
+	explicit := path == "node/network"
+	if explicit {
+		refreshID = in.ID
+		if refreshID == "" {
+			http.Error(w, "Missing node ID", 400)
+			return
+		}
+	} else if strings.HasPrefix(path, "remote/") {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(10 * time.Minute))
 		info, err := func() (object, error) {
 			a.Unlock()
@@ -237,6 +247,14 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(info)
 			return
 		}
+		if path == "remote/save" {
+			for _, r := range a.state.Remotes {
+				if r.Host == in.Host && r.Node.Network == nil {
+					refreshID = r.ID
+					break
+				}
+			}
+		}
 	} else if path != "state" && path != "login" {
 		if err := a.change(path, in); err != nil {
 			http.Error(w, err.Error(), 400)
@@ -247,9 +265,20 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 			a.issue(w)
 		}
 	}
+	if path == "node" && a.state.Node.Network == nil {
+		refreshID = "local"
+	}
+	if refreshID != "" {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Second))
+		err := func() error { a.Unlock(); defer a.Lock(); return a.refreshNetwork(r.Context(), refreshID) }()
+		if explicit && err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+	}
 	nodes := []object{}
 	if n := a.state.Node; n != nil {
-		nodes = append(nodes, object{"id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "lines": n.Lines})
+		nodes = append(nodes, object{"id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "network": n.Network, "lines": n.Lines})
 	}
 	for _, remote := range a.state.Remotes {
 		var online any
@@ -261,7 +290,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		if result, ok := a.reachability[remote.ID]; ok && result.at.After(checked) {
 			online, checked, probe = result.ok, result.at, "tcp"
 		}
-		nodes = append(nodes, object{"id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "lines": remote.Node.Lines})
+		nodes = append(nodes, object{"id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "network": remote.Node.Network, "lines": remote.Node.Lines})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host})
@@ -319,6 +348,9 @@ func (a *App) change(path string, in input) error {
 				n.Lines = append(n.Lines, i)
 			}
 			slices.Sort(n.Lines)
+			if old != nil && !slices.Equal(old.Lines, n.Lines) {
+				n.Network = nil
+			}
 			s.Node = &n
 		}
 		for i, sub := range s.Subs {

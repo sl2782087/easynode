@@ -26,6 +26,7 @@ var protocols = []string{"Shadowsocks", "VLESS + REALITY", "Hysteria 2"}
 const cipherName = "chacha20-ietf-poly1305"
 
 type Node struct {
+	Network                              *NetworkInfo `json:",omitempty"`
 	Name                                 string
 	Lines                                []int
 	SS, UUID, Private, Public, Short, HY string

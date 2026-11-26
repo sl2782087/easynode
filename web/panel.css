@@ -110,3 +110,14 @@ input[type=checkbox] {accent-color:#abc1dd}
   .row {position:relative;grid-template-columns:minmax(0,1fr) auto 28px;gap:3px 8px;padding:12px 0}.row .tag-list {grid-column:1;grid-row:2;padding-left:0}.row .status-cell {grid-column:2;grid-row:1}.row .open {grid-column:3;grid-row:1}.row.head {display:none}.badge-icon {display:none}.row .secondary.kind {display:none}
 }
 @media(prefers-reduced-motion:reduce) {* {transition:none!important;scroll-behavior:auto!important}}
+
+.network-summary {margin:2px 0 4px;color:#bfd2e7;line-height:1.4}
+.network-heading {display:flex;align-items:center;justify-content:space-between}
+.network-heading h3,.exit-card h3 {margin:0;font-size:14px;font-weight:550}
+.exit-card {border:1px solid var(--line);background:#ffffff06;border-radius:16px;padding:14px 16px}
+.exit-card h3 {font-size:12px;color:var(--accent)}
+.exit-card strong {display:block;font-size:20px;font-weight:500;overflow-wrap:anywhere}
+.exit-card dl,.probe-meta {margin:10px 0 0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 14px;font-size:13px}
+.probe-meta {margin:0}
+dt {color:var(--muted)}
+dd {margin:0;text-align:right;overflow-wrap:anywhere}

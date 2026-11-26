@@ -119,7 +119,9 @@ function renderList() {
     const status=item.probe==="tcp"?(item.online?t("端口可达","Reachable"):t("端口不可达","Unreachable")):item.online===true?t("在线","Online"):item.online===false?t("离线","Offline"):t("待检测","Unchecked");
     const state=sub?item.lines.length+' '+t("条","lines"):'<span class="state '+(item.online?"":"offline")+'"><i class="dot"></i>'+status+'</span>';
     const kind=sub?t("通用订阅","Universal"):item.local?t("本机","Local"):t("远程","Remote");
-    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small></div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
+    const exit=item.network?.addresses[0];
+    const summary=exit?[exit.location,exit.organization].filter(Boolean).join(" · "):"";
+    return '<div class="row"><div class="node-name"><span class="badge-icon">'+icon(sub?"link":item.local?"nodes":"globe")+'</span><div><b>'+esc(item.name)+(!sub && item.local?'<span class="local-mark">'+t("本机","Local")+'</span>':"")+'</b><small>'+esc(sub?subUrl(item).replace(/^https?:\/\//,""):item.host)+'</small>'+(summary?'<small class="network-summary">'+esc(summary)+'</small>':'')+'</div></div><div class="tag-list">'+proto.map(p=>'<span class="tag">'+protocols[p]+'</span>').join("")+'</div><div class="status-cell">'+state+'</div><span class="secondary kind">'+kind+'</span><button class="icon-btn open" data-id="'+esc(item.id)+'" aria-label="'+esc(t("查看 ","View ")+item.name)+'">'+icon("arrow")+'</button></div>';
   }).join("");
   if (!data.length) $("list").insertAdjacentHTML("beforeend",'<p class="empty">'+t("没有符合条件的记录","No matching records")+'</p>');
   $("count").textContent=t("显示 "+data.length+" 项，共 "+(sub?subs:nodes).length+" 项","Showing "+data.length+" of "+(sub?subs:nodes).length);
@@ -128,6 +130,32 @@ function afterSave() {
   $("dialog").close();
   renderList();
   notice(live?t("已保存","Saved"):t("已更新预览","Preview updated"));
+}
+function showNode(n) {
+  const info=n.network;
+  const row=(label,value)=>value==null||value===""?"":`<dt>${label}</dt><dd>${esc(value)}</dd>`;
+  const addresses=(info?.addresses||[]).map(addr=>`<section class="exit-card"><h3>${addr.ip.includes(":")?"IPv6":"IPv4"} · ${t("出口","Egress")}</h3><strong>${esc(addr.ip)}</strong>
+    <dl>${row(t("地区","Region"),addr.location)}${row("ASN",addr.asn)}${row(t("网络名称","Network"),addr.organization)}${row(t("反向域名","Reverse DNS"),addr.ptr||"—")}</dl></section>`).join("");
+  dialog(n.name,`<div class="form-stack">
+    <div><small>${t("服务器地址","Server address")}</small><div>${esc(n.host)} · ${n.local?t("本机","Local"):t("远程","Remote")}</div></div>
+    <div class="network-heading"><h3>${t("网络信息","Network details")}</h3><small>Ping0</small></div>
+    ${addresses||'<small>'+t("暂无出口检测结果","No egress result yet")+'</small>'}
+    ${info?`<dl class="probe-meta">${row(t("检测线路","Connection tested"),protocols[info.protocol])}${row(t("面板到节点 TCP 延迟","Panel to node TCP latency"),info.tcpMillis==null?null:info.tcpMillis+" ms")}${row(t("上次成功检测","Last successful check"),new Date(info.checked).toLocaleString(en?"en-US":"zh-CN"))}</dl>`:""}
+    <div class="actions"><button class="quiet" id="edit-node">${t("编辑节点","Edit node")}</button>${live?`<button class="primary" id="refresh-network">${t("重新检测","Check again")}</button>`:""}</div>
+  </div>`);
+  $("edit-node").onclick=()=>editNode(n);
+  const button=$("refresh-network");
+  if(button) button.onclick=async()=>{
+    button.disabled=true;
+    button.textContent=t("正在检测…","Checking…");
+    try {
+      await request("node/network",{ID:n.id});
+      renderList();
+      if(button.isConnected && $("dialog").open) showNode(nodes.find(item=>item.id===n.id));
+    } catch(error) {
+      if(button.isConnected){button.disabled=false;button.textContent=t("重新检测","Check again");$("form-note").textContent=error.message;}
+    }
+  };
 }
 function editNode(n) {
   const field=(label,name,value,attrs="")=>'<label>'+label+'<input class="field" name="'+name+'" value="'+esc(value)+'" '+attrs+'></label>';
@@ -309,7 +337,7 @@ $("list").onclick=event=>{
   if(!button) return;
   const id=button.dataset.id;
   if(isSubs()) showSub(subs.find(s=>s.id===id));
-  else editNode(nodes.find(n=>n.id===id));
+  else showNode(nodes.find(n=>n.id===id));
 };
 window.addEventListener("hashchange",()=>{if(live&&!signedIn){loginForm();return;}$("dialog").close();$("search").value="";renderPage();});
 if(live){nodes.length=subs.length=0;}

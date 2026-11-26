@@ -254,6 +254,9 @@ if test -f /etc/systemd/system/easynodedeck-node-renew.timer; then systemctl dis
 	if path == "remote/delete" {
 		state.Remotes = slices.Delete(state.Remotes, index, index+1)
 	} else if index >= 0 {
+		if prev := state.Remotes[index].Node; prev.UUID == remote.Node.UUID && slices.Equal(prev.Lines, remote.Node.Lines) {
+			remote.Node.Network = prev.Network
+		}
 		state.Remotes[index] = remote
 	} else {
 		state.Remotes = append(state.Remotes, remote)

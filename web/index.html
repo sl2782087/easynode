@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="panel.css">
   <script defer src="vendor/qrcode.js"></script>
   <script defer src="flags.js"></script>
+  <script defer src="picker.js"></script>
   <script defer src="panel.js"></script>
 </head>
 <body>
@@ -20,7 +21,7 @@
   <main>
     <div class="page-head"><div><h1 id="title"></h1><p id="intro"></p></div><button class="primary" id="create"></button></div>
     <section class="overview glass"><div class="overview-inner"><h2 id="summary-title"></h2><div id="stats"></div></div></section>
-    <section class="inventory glass"><div class="inventory-head"><h2 id="list-title"></h2><div class="tools"><label class="search"><span id="search-icon"></span><input type="search" id="search"></label><select id="filter"></select></div></div>
+    <section class="inventory glass"><div class="inventory-head"><h2 id="list-title"></h2><div class="tools"><label class="search"><span id="search-icon"></span><input type="search" id="search"></label><button id="filter" type="button"></button></div></div>
       <div id="list"></div><p id="count"></p>
     </section>
   </main>

@@ -57,7 +57,7 @@ async function request(path, data) {
   signedIn=true;
 }
 async function saveLive(path,data,done) {
-  const buttons=[...$("body").querySelectorAll("button")];
+  const buttons=[...$("body").querySelectorAll("button:enabled")];
   buttons.forEach(b=>b.disabled=true);
   try {await request(path,data);renderList();done();}
   catch(e) {notice(e.message);}
@@ -81,12 +81,14 @@ function notice(message) {
   timer=setTimeout(()=>output.textContent="",2600);
 }
 function dialog(title,content) {
+  closePicker();
   $("form-note").textContent="";
   $("dialog-title").textContent=title;
   $("body").innerHTML=content;
   if (!$("dialog").open) $("dialog").showModal();
 }
 function renderPage() {
+  closePicker();
   const sub=isSubs();
   document.documentElement.lang=en?"en":"zh-CN";
   $("preview").textContent=live?t("管理面板","Control panel"):t("设计预览","Design preview");
@@ -110,8 +112,9 @@ function renderPage() {
   $("search").placeholder=sub?t("搜索订阅","Find subscription"):t("搜索名称或 IP","Find name or IP");
   $("search").setAttribute("aria-label",$("search").placeholder);
   $("filter").hidden=sub;
-  $("filter").setAttribute("aria-label",t("筛选状态","Filter by status"));
-  $("filter").innerHTML='<option value="">'+t("全部状态","All states")+'</option><option value="up">'+t("在线","Online")+'</option><option value="down">'+t("离线","Offline")+'</option>';
+  configurePicker($("filter"),t("筛选状态","Filter by status"),[
+    {value:"",label:t("全部状态","All states")},{value:"up",label:t("在线","Online")},{value:"down",label:t("离线","Offline")}
+  ],$("filter").value);
   $("close").innerHTML=icon("close");
   $("close").setAttribute("aria-label",t("关闭","Close"));
   renderList();
@@ -186,25 +189,26 @@ async function realityProbe(path,data) {
 function editNode(n) {
   const field=(label,name,value,attrs="")=>'<label>'+label+'<input class="field" name="'+name+'" value="'+esc(value)+'" '+attrs+'></label>';
   dialog(n?t("编辑节点","Edit node"):t("添加节点","Add node"),'<form id="editor">'+field(t("名称","Name"),"name",n?.name||'','required maxlength="60"')+
-    '<label>'+t("部署位置","Location")+'<select name="mode"><option value="remote">'+t("远程服务器","Remote server")+'</option><option value="local">'+t("本机","Panel host")+'</option></select></label>'+
+    '<label>'+t("部署位置","Location")+'<button type="button" name="mode"></button></label>'+
     '<div id="remote" class="form-stack"><div class="pair">'+field(t("服务器地址","Server address"),"host",n?.host||'','placeholder="203.0.113.10" maxlength="253"')+field(t("SSH 端口","SSH port"),"port",n?.port||22,'type="number" min="1" max="65535" required')+'</div>'+
     field(t("SSH 用户名","SSH username"),"user",n?.user||"root",'maxlength="60"')+
     field(t("SSH 密码","SSH password"),"pass","",live?'type="password" autocomplete="off"':"disabled placeholder='"+t("预览模式无需凭据","Credentials disabled in preview")+"'")+
     '<small id="host-key" aria-live="polite"></small></div>'+
     '<fieldset><legend>'+t("协议线路","Connections")+'</legend>'+protocols.map((p,i)=>'<label class="choice"><input name="line" type="checkbox" value="'+i+'" '+((n?.lines||[1]).includes(i)?"checked":"")+'>'+p+'</label>').join("")+'</fieldset>'+
     `<details id="reality-options"><summary>${t("REALITY 高级设置","Advanced REALITY settings")}</summary>
-    <div class="form-stack"><label>${t("握手目标","Handshake target")}<select name="preset">
-    <option value="www.cloudflare.com">www.cloudflare.com</option><option value="dl.google.com">dl.google.com</option>
-    <option value="custom">${t("自定义域名","Custom hostname")}</option></select></label>
+    <div class="form-stack"><label>${t("握手目标","Handshake target")}<button type="button" name="preset"></button></label>
     <label id="custom-target">${t("目标域名","Hostname")}<input class="field" name="targetName" maxlength="253" placeholder="tls.example.org"></label>
     ${field(t("节点监听端口（TCP）","Node listening port (TCP)"),"realityPort",n?.reality?.port||30444,'type="number" min="1" max="65535"')}
     <small>${t("更换监听端口后，请放行云安全组和系统防火墙，并刷新订阅。","Allow the new port in both firewalls and refresh your subscription after saving.")}</small>
     ${live?`<button class="quiet" type="button" id="test-target">${t("测试目标 TLS 握手","Test target TLS handshake")}</button><small id="target-status" role="status"></small>`:""}</div></details>`+
     '<small id="node-help"></small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary"></button></div></form>');
   const f=$("editor");
-  f.mode.value=n ? (n.local?"local":"remote") : nodes.some(item=>item.local)?"remote":"local";
+  const hasLocal=nodes.some(item=>item.local);
+  configurePicker(f.mode,t("部署位置","Location"),[
+    {value:"remote",label:t("远程服务器","Remote server")},
+    {value:"local",label:t("本机","Panel host"),disabled:!n && hasLocal}
+  ],n ? (n.local?"local":"remote") : hasLocal?"remote":"local");
   f.mode.disabled=Boolean(n);
-  if(!n && nodes.some(item=>item.local)) f.mode.querySelector("option[value=local]").disabled=true;
   f.host.readOnly=Boolean(n);
   f.user.readOnly=live;
   let fingerprint=n?.fingerprint||"";
@@ -229,7 +233,10 @@ function editNode(n) {
   function mode() {
     const local=f.mode.value==="local";
     const settings=n?.reality||{target:realityDefaults.target,port:local?realityDefaults.port:30444};
-    f.preset.value=["www.cloudflare.com","dl.google.com"].includes(settings.target)?settings.target:"custom";
+    const hosts=["www.cloudflare.com","dl.google.com"];
+    configurePicker(f.preset,t("握手目标","Handshake target"),[
+      ...hosts.map(value=>({value,label:value})),{value:"custom",label:t("自定义域名","Custom hostname")}
+    ],hosts.includes(settings.target)?settings.target:"custom");
     f.targetName.value=settings.target;f.realityPort.value=settings.port;
     syncAdvanced();
     $("remote").hidden=local;
@@ -395,7 +402,7 @@ $("dialog").addEventListener("cancel",e=>{if(live&&!signedIn)e.preventDefault();
 $("account").onclick=accountHome;
 $("create").onclick=()=>isSubs()?editSub():editNode();
 $("close").onclick=()=>$("dialog").close();
-$("dialog").addEventListener("close",()=>{if(!$("dialog").open) $("body").replaceChildren();});
+$("dialog").addEventListener("close",()=>{if(!$("dialog").open){closePicker();$("body").replaceChildren();}});
 $("search").oninput=renderList;
 $("filter").onchange=renderList;
 $("language").onclick=()=>{en=!en;renderPage();};

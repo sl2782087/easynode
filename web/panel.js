@@ -10,6 +10,7 @@ const nodes = [
 ];
 const subs = [{id:"travel",name:"Asia Pacific",lines:["hk/1","jp/1","sg/2"]}];
 const icons = {
+  user:'<circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   nodes:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
   link:'<path d="m10 13 4-4m-6 2-2 2a4 4 0 0 0 6 6l3-3m1-3 2-2a4 4 0 0 0-6-6L9 8"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', close:'<path d="m6 6 12 12M18 6 6 18"/>',
@@ -44,6 +45,10 @@ function renderPage() {
   document.documentElement.lang=en?"en":"zh-CN";
   $("preview").textContent=t("设计预览","Design preview");
   $("language").textContent=en?"中文":"EN";
+  const accountLabel=t("用户中心","Account");
+  $("account").innerHTML=icon("user")+"<span>"+accountLabel+"</span>";
+  $("account").setAttribute("aria-label",accountLabel);
+  $("account").title=accountLabel;
   $("nodes-tab").innerHTML=icon("nodes")+t("节点","Nodes");
   $("subs-tab").innerHTML=icon("link")+t("订阅","Subscriptions");
   $("nodes-tab").removeAttribute("aria-current");
@@ -164,8 +169,58 @@ function showSub(s) {
     catch {$("url").select();$("copy").textContent=t("请手动复制","Copy selection");}
   };
 }
+// Only a demonstration account, reset on every reload.
+const demoAccount = {username:"admin", passwordDigest:null};
+const initialDemoPassword = "Deck-preview";
+function accountHome() {
+  dialog(t("用户中心","Account"),`<div class="form-stack">
+    <div class="account-row"><div><small>${t("管理员用户名","Administrator username")}</small><strong>${esc(demoAccount.username)}</strong></div>
+      <button class="quiet" id="rename">${t("修改用户名","Change username")}</button></div>
+    <div class="account-row"><div><small>${t("登录密码","Password")}</small><strong>••••••••</strong></div>
+      <button class="quiet" id="rekey">${t("修改密码","Change password")}</button></div>
+    <small>${t("演示账号仅在当前页面生效，刷新后重置。","This demo account resets when you reload the page.")}</small></div>`);
+  $("rename").onclick=()=>editAccount(false);
+  $("rekey").onclick=()=>editAccount(true);
+}
+async function previewDigest(value) {
+  const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return new Uint8Array(bytes).join(",");
+}
+function editAccount(password) {
+  const title=password?t("修改密码","Change password"):t("修改用户名","Change username");
+  const passwordField=(label,name,attrs="")=>`<label>${label}<input class="field" type="password" name="${name}" required autocomplete="off" ${attrs}></label>`;
+  const hint=demoAccount.passwordDigest ? t("使用刚设置的演示密码。","Use your updated demo password.")
+    : t("当前演示密码为 Deck-preview。","The current demo password is Deck-preview.");
+  dialog(title,`<form id="account-form" autocomplete="off">
+    <small>${hint}</small>
+    ${passwordField(t("当前密码","Current password"),"current")}
+    ${password?passwordField(t("新密码（至少 8 位）","New password (at least 8 characters)"),"next",'minlength="8"')+
+      passwordField(t("确认新密码","Confirm new password"),"confirmation"):
+      `<label>${t("新用户名","New username")}<input class="field" name="username" value="${esc(demoAccount.username)}" required maxlength="60"></label>`}
+    <div class="actions"><button class="quiet" type="button" id="account-back">${t("返回","Back")}</button><button class="primary">${t("保存修改","Save changes")}</button></div>
+  </form>`);
+  $("account-back").onclick=accountHome;
+  $("account-form").onsubmit=async event=>{
+    event.preventDefault();
+    const f=event.currentTarget;
+    const valid=demoAccount.passwordDigest ? await previewDigest(f.current.value)===demoAccount.passwordDigest : f.current.value===initialDemoPassword;
+    if(!valid) return notice(t("当前密码不正确","Incorrect current password"));
+    if(password) {
+      if(f.next.value!==f.confirmation.value) return notice(t("两次输入的新密码不一致","The new passwords do not match"));
+      demoAccount.passwordDigest=await previewDigest(f.next.value);
+    } else {
+      const username=f.username.value.trim();
+      if(!username) return notice(t("请输入用户名","Enter a username"));
+      demoAccount.username=username;
+    }
+    accountHome();
+    notice(password?t("演示密码已更新","Demo password updated"):t("用户名已更新","Username updated"));
+  };
+}
+$("account").onclick=accountHome;
 $("create").onclick=()=>isSubs()?editSub():editNode();
 $("close").onclick=()=>$("dialog").close();
+$("dialog").addEventListener("close",()=>{if(!$("dialog").open) $("body").replaceChildren();});
 $("search").oninput=renderList;
 $("filter").onchange=renderList;
 $("language").onclick=()=>{en=!en;renderPage();};

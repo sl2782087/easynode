@@ -14,7 +14,7 @@ function setLanguage() {
   byId("feedback").textContent = "";
   for (const label of translations) label.element.textContent = english ? label.en : label.zh;
   document.documentElement.lang = english ? "en" : "zh-CN";
-  document.title = english ? "EasyNodeDeck · Self-hosted node management" : "EasyNodeDeck 易节点 · 自托管节点管理面板";
+  document.title = english ? "EasyNode · Self-hosted node management" : "EasyNode 易节点 · 自托管节点管理面板";
   language.textContent = english ? "中文" : "EN";
   language.setAttribute("aria-label", english ? "切换为中文" : "Switch to English");
   document.querySelector(".doc").href = "https://github.com/sl2782087/easynodedeck/blob/main/" + (english ? "README.en.md" : "README.md");

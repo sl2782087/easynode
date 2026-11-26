@@ -137,8 +137,8 @@ func (a *App) subscription(s Subscription, clash bool) string {
 	if len(names) == 0 {
 		return "proxies: []\nproxy-groups: []\nrules:\n  - MATCH,REJECT\n"
 	}
-	group, _ := json.Marshal(object{"name": "EasyNodeDeck", "type": "select", "proxies": names})
-	return "mode: rule\nproxies:\n" + strings.Join(proxies, "\n") + "\nproxy-groups:\n  - " + string(group) + "\nrules:\n  - MATCH,EasyNodeDeck\n"
+	group, _ := json.Marshal(object{"name": "EasyNode", "type": "select", "proxies": names})
+	return "mode: rule\nproxies:\n" + strings.Join(proxies, "\n") + "\nproxy-groups:\n  - " + string(group) + "\nrules:\n  - MATCH,EasyNode\n"
 }
 func atomicWrite(path string, b []byte) error {
 	f, err := os.CreateTemp(filepath.Dir(path), ".pending-")

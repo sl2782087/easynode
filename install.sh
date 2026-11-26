@@ -84,7 +84,7 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.6.0
+release=https://github.com/sl2782087/easynodedeck/releases/download/v0.6.1
 if [[ -z ${DECK_BINARY:-} ]]; then
   asset=easynodedeck-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"
@@ -128,7 +128,7 @@ if [[ ! -f "$etc/panel.env" ]]; then
 fi
 cat > /etc/systemd/system/easynodedeck.service <<'UNIT'
 [Unit]
-Description=EasyNodeDeck local node and subscription panel
+Description=EasyNode local node and subscription panel
 After=network-online.target
 Wants=network-online.target
 [Service]
@@ -170,14 +170,14 @@ UNIT
 fi
 cat > /etc/systemd/system/easynodedeck-renew.service <<'UNIT'
 [Unit]
-Description=Renew EasyNodeDeck TLS certificate
+Description=Renew EasyNode TLS certificate
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/flock /run/easynodedeck-acme.lock /opt/easynodedeck-certbot/bin/certbot renew --cert-name easynodedeck --quiet --deploy-hook "/usr/bin/systemctl restart easynodedeck.service"
 UNIT
 cat > /etc/systemd/system/easynodedeck-renew.timer <<'UNIT'
 [Unit]
-Description=Check EasyNodeDeck certificate twice daily
+Description=Check EasyNode certificate twice daily
 [Timer]
 OnCalendar=*-*-* 00,12:00:00
 RandomizedDelaySec=45min
@@ -187,7 +187,7 @@ WantedBy=timers.target
 UNIT
 cat > /etc/systemd/system/easynodedeck-domain.socket <<'UNIT'
 [Unit]
-Description=EasyNodeDeck domain configuration socket
+Description=EasyNode domain configuration socket
 [Socket]
 ListenStream=/run/easynodedeck-domain.sock
 SocketMode=0660
@@ -199,7 +199,7 @@ WantedBy=sockets.target
 UNIT
 cat > /etc/systemd/system/easynodedeck-domain@.service <<'UNIT'
 [Unit]
-Description=Configure the EasyNodeDeck panel domain
+Description=Configure the EasyNode panel domain
 [Service]
 EnvironmentFile=/etc/easynodedeck/panel.env
 ExecStart=/opt/easynodedeck/panel domain-helper
@@ -217,5 +217,5 @@ systemctl enable --now easynodedeck-domain.socket
 systemctl start easynodedeck-renew.timer
 systemctl restart easynodedeck.service
 curl --noproxy '*' --resolve "$host:443:127.0.0.1" -fsS --retry 5 --retry-connrefused "https://$host/web/" -o /dev/null
-printf 'EasyNodeDeck: https://%s/\n' "$host"
+printf 'EasyNode: https://%s/\n' "$host"
 if [[ -n $user ]]; then cat "$etc/initial-access"; fi

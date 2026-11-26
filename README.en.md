@@ -1,12 +1,12 @@
-<p align="center"><img src="assets/logo.png" width="96" height="96" alt="EasyNodeDeck"></p>
+<p align="center"><img src="assets/logo.png" width="96" height="96" alt="EasyNode"></p>
 
-# EasyNodeDeck
+# EasyNode
 
-[Website](https://sl2782087.github.io/easynodedeck/?lang=en) · [简体中文](README.md) · English
+[Website](https://easynode.cc.cd/?lang=en) · [简体中文](README.md) · English
 
 **Turn your VPS into a proxy node and use one subscription on your phone and computer.**
 
-EasyNodeDeck is for people who run their own proxies on one or a few Linux servers. Setting up a second VPS by hand usually means another SSH session, another set of protocol configs, and another round of importing links on every device. With EasyNodeDeck, you install a panel on the first VPS. That machine can serve as your first node, too.
+EasyNode is for people who run their own proxies on one or a few Linux servers. Setting up a second VPS by hand usually means another SSH session, another set of protocol configs, and another round of importing links on every device. With EasyNode, you install a panel on the first VPS. That machine can serve as your first node, too.
 
 - **Start with a public IPv4 address.** A domain is optional. The installer handles dependencies and HTTPS certificates and can generate your admin credentials.
 - **Add the next server from your browser.** Enter its SSH details, verify the host key and pick Shadowsocks, VLESS + REALITY or Hysteria 2. The panel installs the node and reuses a matching configuration on repeat deployments.
@@ -32,7 +32,7 @@ Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. A
 **1. Install the panel.** Run this command on the VPS.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.1/install.sh)
 ```
 
 Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.

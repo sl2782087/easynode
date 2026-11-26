@@ -103,7 +103,7 @@ function renderPage() {
   $("subs-tab").removeAttribute("aria-current");
   $(sub?"subs-tab":"nodes-tab").setAttribute("aria-current","page");
   $("title").textContent=sub?t("订阅管理","Subscriptions"):t("节点管理","Node management");
-  document.title=$("title").textContent+" · EasyNodeDeck";
+  document.title=$("title").textContent+" · EasyNode";
   $("intro").textContent=sub?t("组合节点线路，管理订阅链接与二维码。","Group connections and manage subscription links and QR codes."):t("管理本机与远程服务器，查看节点状态与线路。","Manage local and remote servers, their status and connections.");
   $("create").innerHTML=icon("plus")+(sub?t("创建订阅","Create subscription"):t("添加节点","Add node"));
   $("summary-title").textContent=sub?t("订阅概览","Subscription overview"):t("节点概览","Node overview");

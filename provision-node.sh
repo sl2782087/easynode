@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 exec >>/var/log/easynodedeck-node-install.log 2>&1
-echo "EasyNodeDeck node installation: $(date -u +%FT%TZ)"
+echo "EasyNode node installation: $(date -u +%FT%TZ)"
 root=/opt/easynodedeck-node
 etc=/etc/easynodedeck-node
 unit=/etc/systemd/system/easynodedeck-node.service
@@ -50,14 +50,14 @@ if [[ $WITH_TLS == true ]]; then
     --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring
   cat > /etc/systemd/system/easynodedeck-node-renew.service <<UNIT
 [Unit]
-Description=Renew EasyNodeDeck remote node certificate
+Description=Renew EasyNode remote node certificate
 [Service]
 Type=oneshot
 ExecStart=$acme/bin/certbot renew --config-dir $etc/acme --work-dir $etc/acme-work --logs-dir $etc/acme-logs --cert-name node --quiet --deploy-hook "/usr/bin/systemctl restart easynodedeck-node.service"
 UNIT
   cat > /etc/systemd/system/easynodedeck-node-renew.timer <<'UNIT'
 [Unit]
-Description=Check EasyNodeDeck remote node certificate twice daily
+Description=Check EasyNode remote node certificate twice daily
 [Timer]
 OnCalendar=*-*-* 00,12:00:00
 RandomizedDelaySec=45min
@@ -73,7 +73,7 @@ sed -e "s|/run/credentials/easynodedeck-node.service/cert.pem|$certdir/fullchain
 "$core" check -c "$scratch/check.json"
 cat > "$scratch/unit" <<UNIT
 [Unit]
-Description=EasyNodeDeck remote proxy node
+Description=EasyNode remote proxy node
 After=network-online.target
 [Service]
 User=easynodedeck-node

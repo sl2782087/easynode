@@ -15,7 +15,7 @@ A lightweight, self-hosted panel for local and remote Linux nodes. Combine Shado
 
 </details>
 
-Server and egress addresses in these screenshots use documentation IPs.
+Screenshots use the offline demo with fictional servers, documentation IPs and ASNs, and simulated network checks.
 
 ## Supported systems
 

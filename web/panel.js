@@ -27,6 +27,17 @@ const t = (zh, english) => en ? english : zh;
 const isSubs = () => location.hash === "#subscriptions";
 const allLines = () => nodes.flatMap(n=>n.lines.map(p=>({key:n.id+"/"+p,label:n.name+" · "+protocols[p]})));
 const live = location.protocol !== "file:";
+if (!live) {
+  const regions = ["中国香港", "日本 东京", "新加坡", "美国 洛杉矶"];
+  nodes.forEach((node,index)=>{
+    node.network={
+      addresses:[{ip:node.host,location:regions[index],asn:"AS"+(64496+index),
+        organization:"Example Network",ptr:node.id+".example.invalid"}],
+      checked:"2026-01-15T02:30:00Z",protocol:node.lines[0]
+    };
+    if(node.lines[0]!==2) node.network.tcpMillis=[2,24,0,96][index];
+  });
+}
 const subUrl = sub => (live ? location.origin : "https://demo.invalid")+"/s/"+sub.id;
 let signedIn=live?null:false;
 async function request(path, data) {
@@ -138,7 +149,7 @@ function showNode(n) {
     <dl>${addr.location?`<dt>${t("地区","Region")}</dt><dd>${regionFlag(addr.location)}${esc(addr.location)}</dd>`:""}${row("ASN",addr.asn)}${row(t("网络名称","Network"),addr.organization)}${row(t("反向域名","Reverse DNS"),addr.ptr||"—")}</dl></section>`).join("");
   dialog(n.name,`<div class="form-stack">
     <div><small>${t("服务器地址","Server address")}</small><div>${esc(n.host)} · ${n.local?t("本机","Local"):t("远程","Remote")}</div></div>
-    <div class="network-heading"><h3>${t("网络信息","Network details")}</h3><small>Ping0</small></div>
+    <div class="network-heading"><h3>${t("网络信息","Network details")}</h3><small>${live?"Ping0":t("模拟数据","Sample data")}</small></div>
     ${addresses||'<small>'+t("暂无出口检测结果","No egress result yet")+'</small>'}
     ${info?`<dl class="probe-meta">${row(t("检测线路","Connection tested"),protocols[info.protocol])}${row(t("面板到节点 TCP 延迟","Panel to node TCP latency"),info.tcpMillis==null?null:info.tcpMillis+" ms")}${row(t("上次成功检测","Last successful check"),new Date(info.checked).toLocaleString(en?"en-US":"zh-CN"))}</dl>`:""}
     <div class="actions"><button class="quiet" id="edit-node">${t("编辑节点","Edit node")}</button>${live?`<button class="primary" id="refresh-network">${t("重新检测","Check again")}</button>`:""}</div>

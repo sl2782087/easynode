@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>EasyNodeDeck · 节点管理</title>
+  <link rel="icon" href="../assets/logo.png">
+  <link rel="stylesheet" href="panel.css">
+  <script defer src="vendor/qrcode.js"></script>
+  <script defer src="panel.js"></script>
+</head>
+<body>
+  <header><div class="bar">
+    <a href="#nodes" class="brand"><img src="../assets/logo.png" alt="">EasyNodeDeck</a>
+    <nav aria-label="Navigation"><a id="nodes-tab" href="#nodes"></a><a id="subs-tab" href="#subscriptions"></a></nav>
+    <div class="utility"><span class="preview" id="preview"></span><button id="language"></button></div>
+  </div></header>
+  <main>
+    <div class="page-head"><div><h1 id="title"></h1><p id="intro"></p></div><button class="primary" id="create"></button></div>
+    <section class="overview glass"><div class="rack"></div><div class="overview-inner"><h2 id="summary-title"></h2><div id="stats"></div></div></section>
+    <section class="inventory glass"><div class="inventory-head"><h2 id="list-title"></h2><div class="tools"><label class="search"><span id="search-icon"></span><input type="search" id="search"></label><select id="filter"></select></div></div>
+      <div id="list"></div><p id="count"></p>
+    </section>
+  </main>
+  <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="icon-btn" id="close"></button></div><div id="body"></div><output id="form-note" role="status"></output></dialog>
+  <output id="notice" role="status"></output>
+</body>
+</html>

@@ -8,6 +8,12 @@ A lightweight, self-hosted proxy panel for personal VPS fleets. Manage local and
 
 **Status**　Early development. The first installable release is planned around the workflow below.
 
+### Panel design preview
+
+Download the repository and open [web/index.html](web/index.html) in a browser. Switch languages, edit sample nodes, select connections and preview a subscription QR code. The preview runs locally and resets on reload.
+
+![Node management design preview](assets/panel-preview.webp)
+
 ## First release
 
 1. **Install the panel.** Run one command on a Linux server. Choose administrator credentials or leave the fields blank to generate them. The installer prints the sign-in URL and initial credentials. Use a public IP by default, or bind a domain during setup or later.

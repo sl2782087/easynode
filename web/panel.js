@@ -39,6 +39,7 @@ if (!live) {
   });
 }
 const subUrl = sub => (live ? location.origin : "https://demo.invalid")+"/s/"+sub.id;
+let realityDefaults={target:"www.cloudflare.com",port:30444};
 let signedIn=live?null:false;
 async function request(path, data) {
   const options=data ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)} : {};
@@ -52,6 +53,7 @@ async function request(path, data) {
   nodes.splice(0,nodes.length,...state.nodes);
   subs.splice(0,subs.length,...state.subs);
   demoAccount.username=state.user;
+  realityDefaults=state.realityDefaults||realityDefaults;
   signedIn=true;
 }
 async function saveLive(path,data,done) {
@@ -152,8 +154,16 @@ function showNode(n) {
     <div class="network-heading"><h3>${t("网络信息","Network details")}</h3><small>${live?"Ping0":t("模拟数据","Sample data")}</small></div>
     ${addresses||'<small>'+t("暂无出口检测结果","No egress result yet")+'</small>'}
     ${info?`<dl class="probe-meta">${row(t("检测线路","Connection tested"),protocols[info.protocol])}${row(t("面板到节点 TCP 延迟","Panel to node TCP latency"),info.tcpMillis==null?null:info.tcpMillis+" ms")}${row(t("上次成功检测","Last successful check"),new Date(info.checked).toLocaleString(en?"en-US":"zh-CN"))}</dl>`:""}
+    ${n.lines.includes(1)&&live?`<button class="quiet" id="check-reality">${t("测试已保存的 REALITY 线路","Test saved REALITY connection")}</button><small role="status" id="reality-status"></small>`:""}
     <div class="actions"><button class="quiet" id="edit-node">${t("编辑节点","Edit node")}</button>${live?`<button class="primary" id="refresh-network">${t("重新检测","Check again")}</button>`:""}</div>
   </div>`);
+  const check=$("check-reality");
+  if(check) check.onclick=async()=>{
+    const status=$("reality-status"); check.disabled=true;
+    status.textContent=t("正在通过 REALITY 连接 Ping0…","Connecting to Ping0 through REALITY…");
+    try { await realityProbe("node/handshake",{ID:n.id});status.textContent=t("REALITY 连接成功","REALITY connection verified"); }
+    catch(e){status.textContent=e.message;} finally{check.disabled=false;}
+  };
   $("edit-node").onclick=()=>editNode(n);
   const button=$("refresh-network");
   if(button) button.onclick=async()=>{
@@ -168,6 +178,11 @@ function showNode(n) {
     }
   };
 }
+async function realityProbe(path,data) {
+  const res=await fetch("/api/"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+  if(res.status===401){signedIn=false;loginForm();}
+  if(!res.ok)throw Error((await res.text()).trim());
+}
 function editNode(n) {
   const field=(label,name,value,attrs="")=>'<label>'+label+'<input class="field" name="'+name+'" value="'+esc(value)+'" '+attrs+'></label>';
   dialog(n?t("编辑节点","Edit node"):t("添加节点","Add node"),'<form id="editor">'+field(t("名称","Name"),"name",n?.name||'','required maxlength="60"')+
@@ -177,6 +192,14 @@ function editNode(n) {
     field(t("SSH 密码","SSH password"),"pass","",live?'type="password" autocomplete="off"':"disabled placeholder='"+t("预览模式无需凭据","Credentials disabled in preview")+"'")+
     '<small id="host-key" aria-live="polite"></small></div>'+
     '<fieldset><legend>'+t("协议线路","Connections")+'</legend>'+protocols.map((p,i)=>'<label class="choice"><input name="line" type="checkbox" value="'+i+'" '+((n?.lines||[1]).includes(i)?"checked":"")+'>'+p+'</label>').join("")+'</fieldset>'+
+    `<details id="reality-options"><summary>${t("REALITY 高级设置","Advanced REALITY settings")}</summary>
+    <div class="form-stack"><label>${t("握手目标","Handshake target")}<select name="preset">
+    <option value="www.cloudflare.com">www.cloudflare.com</option><option value="dl.google.com">dl.google.com</option>
+    <option value="custom">${t("自定义域名","Custom hostname")}</option></select></label>
+    <label id="custom-target">${t("目标域名","Hostname")}<input class="field" name="targetName" maxlength="253" placeholder="tls.example.org"></label>
+    ${field(t("节点监听端口（TCP）","Node listening port (TCP)"),"realityPort",n?.reality?.port||30444,'type="number" min="1" max="65535"')}
+    <small>${t("更换监听端口后，请放行云安全组和系统防火墙，并刷新订阅。","Allow the new port in both firewalls and refresh your subscription after saving.")}</small>
+    ${live?`<button class="quiet" type="button" id="test-target">${t("测试目标 TLS 握手","Test target TLS handshake")}</button><small id="target-status" role="status"></small>`:""}</div></details>`+
     '<small id="node-help"></small><div class="actions">'+(n?'<button class="quiet" type="button" id="remove">'+t("移除节点","Remove node")+'</button>':'')+'<button class="primary"></button></div></form>');
   const f=$("editor");
   f.mode.value=n ? (n.local?"local":"remote") : nodes.some(item=>item.local)?"remote":"local";
@@ -191,8 +214,24 @@ function editNode(n) {
   }
   function resetKey(){if(!n){fingerprint="";$("host-key").textContent="";}submitLabel();}
   f.host.oninput=resetKey;f.port.oninput=resetKey;
+  function targetValue(){return f.preset.value==="custom"?f.targetName.value.trim():f.preset.value;}
+  const advanced=$("reality-options");
+  function syncAdvanced(){
+    const enabled=f.querySelector('[name=line][value="1"]').checked;
+    advanced.hidden=!enabled;
+    f.realityPort.disabled=f.preset.disabled=!enabled;
+    const custom=f.preset.value==="custom";
+    $("custom-target").hidden=!custom;f.targetName.required=enabled&&custom;f.targetName.disabled=!enabled||!custom;
+    if($("target-status"))$("target-status").textContent="";
+  }
+  f.querySelectorAll("[name=line]").forEach(box=>box.onchange=syncAdvanced);
+  f.preset.onchange=syncAdvanced; f.targetName.oninput=syncAdvanced;
   function mode() {
     const local=f.mode.value==="local";
+    const settings=n?.reality||{target:realityDefaults.target,port:local?realityDefaults.port:30444};
+    f.preset.value=["www.cloudflare.com","dl.google.com"].includes(settings.target)?settings.target:"custom";
+    f.targetName.value=settings.target;f.realityPort.value=settings.port;
+    syncAdvanced();
     $("remote").hidden=local;
     f.host.required=!local;
     f.port.disabled=local;
@@ -200,7 +239,32 @@ function editNode(n) {
     $("node-help").textContent=live?(local?t("使用独立的本机节点服务。","Uses a dedicated local service."):t("使用 root 登录，仅在本次部署中使用 SSH 密码。","SSH uses root and the password is used for this operation only.")):t("示例数据仅在当前页面保留。","Changes last until reload.");
     submitLabel();
   }
+  async function verifyKey(target){
+    submit.disabled=true;
+    try{
+      const res=await fetch("/api/remote/key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(target)});
+      if(!res.ok) throw Error(await res.text());
+      const result=await res.json();
+      if(target.Host!==f.host.value.trim()||target.Port!==Number(f.port.value))return;
+      fingerprint=result.fingerprint;
+      $("host-key").textContent=t("请核对 SSH 指纹：","Verify SSH fingerprint: ")+fingerprint;
+      submitLabel();
+    }finally{submit.disabled=false;}
+  }
   mode(); f.mode.onchange=mode;
+  const test=$("test-target");
+  if(test)test.onclick=async()=>{
+    const local=f.mode.value==="local", status=$("target-status");
+    const Reality={target:targetValue(),port:Number(f.realityPort.value)};
+    const target={Host:f.host.value.trim(),Port:Number(f.port.value)};
+    test.disabled=true;
+    try{
+      if(!local&&!fingerprint){await verifyKey(target);status.textContent=t("核对上方 SSH 指纹后再次点击测试。","Verify the SSH fingerprint above, then test again.");return;}
+      status.textContent=t("正在测试目标…","Checking target…");
+      await realityProbe(local?"node/target":"remote/target",{...target,Reality,ID:n?.id||"",Fingerprint:fingerprint,Password:local?"":f.pass.value});
+      status.textContent=Reality.target+" · TLS 1.3 / HTTP/2 ✓";
+    }catch(e){status.textContent=e.message;}finally{test.disabled=false;}
+  };
   if(n) $("remove").onclick=()=>{
     if(live&&!n.local&&!f.pass.value){f.pass.reportValidity();return;}
     confirmRemove(n,false,f.pass.value);
@@ -211,30 +275,22 @@ function editNode(n) {
     const name=f.elements.namedItem("name").value.trim();
     const host=local?(n?.local?n.host:"127.0.0.1"):f.host.value.trim();
     const lines=[...f.querySelectorAll("[name=line]:checked")].map(input=>Number(input.value));
+    const Reality=lines.includes(1)?{target:targetValue(),port:Number(f.realityPort.value)}:undefined;
     if(!lines.length || !name || !host) return notice(t("请填写名称、地址并选择协议","Enter a name, address and protocol"));
     if(local && nodes.some(other=>other.local && other!==n)) return notice(t("本机已经在节点列表中","The panel host is already listed"));
     if(live && !local){
       const target={Host:host,Port:Number(f.port.value)};
       if(!fingerprint){
-        submit.disabled=true;
-        try {
-          const response=await fetch("/api/remote/key",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(target)});
-          if(!response.ok) throw Error(await response.text());
-          const result=await response.json();
-          if(host!==f.host.value.trim()||target.Port!==Number(f.port.value))return;
-          fingerprint=result.fingerprint;
-          $("host-key").textContent=t("确认目标主机指纹后再部署：","Verify this host fingerprint before deploying: ")+fingerprint;
-          submitLabel();
-        }catch(e){notice(e.message);}finally{submit.disabled=false;}
+        try{await verifyKey(target);}catch(e){notice(e.message);}
         return;
       }
       $("node-help").textContent=t("正在连接、检测配置并启动服务，请稍候。","Connecting, checking the configuration and starting the service…");
-      return saveLive("remote/save",{...target,ID:n?.id||"",Name:name,Lines:lines.map(String),Fingerprint:fingerprint,Password:f.pass.value},afterSave);
+      return saveLive("remote/save",{...target,Reality,ID:n?.id||"",Name:name,Lines:lines.map(String),Fingerprint:fingerprint,Password:f.pass.value},afterSave);
     }
-    if(live) return saveLive("node",{Name:name,Lines:lines.map(String)},afterSave);
+    if(live) return saveLive("node",{Reality,Name:name,Lines:lines.map(String)},afterSave);
     const item=n||{id:"node-"+(++sequence)};
     if(!n || Boolean(n.local)!==local || n.host!==host) item.online=null;
-    Object.assign(item,{name,host,local,port:Number(f.port.value),user:f.user.value,lines});
+    Object.assign(item,{reality:Reality||item.reality,name,host,local,port:Number(f.port.value),user:f.user.value,lines});
     if (!n) nodes.push(item);
     pruneLines();
     afterSave();

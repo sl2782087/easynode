@@ -38,7 +38,8 @@ type networkTarget struct {
 
 func (a *App) networkTarget(id string) (networkTarget, bool) {
 	if id == "local" && a.state.Node != nil {
-		return networkTarget{*a.state.Node, a.host, a.sni, a.ports}, true
+		e := a.localEndpoint(a.state.Node)
+		return networkTarget{*a.state.Node, e.host, e.sni, e.ports}, true
 	}
 	for _, remote := range a.state.Remotes {
 		if remote.ID == id {
@@ -151,7 +152,7 @@ func (a *App) refreshNetwork(ctx context.Context, id string) error {
 	a.Lock()
 	defer a.Unlock()
 	current, ok := a.networkTarget(id)
-	if !ok || current.node.UUID != target.node.UUID || !slices.Equal(current.node.Lines, target.node.Lines) {
+	if !ok || current.node.UUID != target.node.UUID || current.ports != target.ports || current.sni != target.sni || !slices.Equal(current.node.Lines, target.node.Lines) {
 		return errors.New("节点已变更 / Node changed")
 	}
 	state := a.state

@@ -157,6 +157,7 @@ func (a *App) serveSubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 type input struct {
+	Reality                           *RealitySettings
 	User, Password, Current, Name, ID string
 	Host, Fingerprint                 string
 	Port                              int
@@ -254,7 +255,46 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	}
 	refreshID := ""
 	explicit := path == "node/network"
-	if explicit {
+	if path == "node/target" {
+		if in.Reality == nil {
+			http.Error(w, "Missing target", 400)
+			return
+		}
+		err := func() error {
+			a.Unlock()
+			defer a.Lock()
+			return checkTarget(r.Context(), in.Reality.Target, (&net.Dialer{}).DialContext)
+		}()
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		w.WriteHeader(204)
+		return
+	} else if path == "node/handshake" {
+		target, ok := a.networkTarget(in.ID)
+		if !ok || !slices.Contains(target.node.Lines, 1) {
+			http.Error(w, "No REALITY connection", 400)
+			return
+		}
+		cfg, _ := json.Marshal(object{"log": object{"disabled": true}, "outbounds": []object{target.outbound(1)}})
+		ok = func() bool {
+			a.Unlock()
+			defer a.Lock()
+			for _, ipv4 := range []bool{true, false} {
+				if _, ok := fetchExit(r.Context(), a.binary, cfg, ipv4); ok {
+					return true
+				}
+			}
+			return false
+		}()
+		if !ok {
+			http.Error(w, "REALITY 线路未能访问 Ping0，请检查目标、端口和防火墙 / Could not reach Ping0 through REALITY", 400)
+			return
+		}
+		w.WriteHeader(204)
+		return
+	} else if explicit {
 		refreshID = in.ID
 		if refreshID == "" {
 			http.Error(w, "Missing node ID", 400)
@@ -313,7 +353,8 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	}
 	nodes := []object{}
 	if n := a.state.Node; n != nil {
-		nodes = append(nodes, object{"id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "network": n.Network, "lines": n.Lines})
+		e := a.localEndpoint(n)
+		nodes = append(nodes, object{"reality": RealitySettings{e.sni, e.ports[1]}, "id": "local", "name": n.Name, "host": a.host, "local": true, "online": a.core.alive(), "network": n.Network, "lines": n.Lines})
 	}
 	for _, remote := range a.state.Remotes {
 		var online any
@@ -325,10 +366,10 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		if result, ok := a.reachability[remote.ID]; ok && result.at.After(checked) {
 			online, checked, probe = result.ok, result.at, "tcp"
 		}
-		nodes = append(nodes, object{"id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "network": remote.Node.Network, "lines": remote.Node.Lines})
+		nodes = append(nodes, object{"reality": RealitySettings{remote.SNI, remote.Ports[1]}, "id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "network": remote.Node.Network, "lines": remote.Node.Lines})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host})
+	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host, "realityDefaults": RealitySettings{a.sni, a.ports[1]}})
 }
 func (a *App) password(p string) bool {
 	return subtle.ConstantTimeCompare([]byte(a.state.Hash), []byte(digest(p, a.state.Salt))) == 1
@@ -388,6 +429,22 @@ func (a *App) change(path string, in input) error {
 				n.Lines = append(n.Lines, i)
 			}
 			slices.Sort(n.Lines)
+			if in.Reality != nil && slices.Contains(n.Lines, 1) {
+				settings, err := in.Reality.validate(n.Lines, a.ports[0], 443)
+				if err != nil {
+					return err
+				}
+				n.Reality = settings
+				if settings.Target == a.sni {
+					n.Reality.Target = ""
+				}
+				if settings.Port == a.ports[1] {
+					n.Reality.Port = 0
+				}
+				if old == nil || a.localEndpoint(old).sni != settings.Target || a.localEndpoint(old).ports[1] != settings.Port {
+					n.Network = nil
+				}
+			}
 			if old != nil && !slices.Equal(old.Lines, n.Lines) {
 				n.Network = nil
 			}
@@ -402,7 +459,7 @@ func (a *App) change(path string, in input) error {
 			}
 			s.Subs[i].Lines = lines
 		}
-		changed := s.Node == nil || old == nil || !slices.Equal(s.Node.Lines, old.Lines) || !a.core.alive()
+		changed := s.Node == nil || old == nil || s.Node.Reality != old.Reality || !slices.Equal(s.Node.Lines, old.Lines) || !a.core.alive()
 		if changed {
 			if err := a.apply(s.Node); err != nil {
 				if !a.core.alive() {

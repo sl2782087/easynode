@@ -32,7 +32,7 @@
 **1. 安装面板。** 在 VPS 上执行下面的命令。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.5.0/install.sh)
 ```
 
 提示的公网 IP 正确就按回车，也可以填写已解析到这台 VPS 的域名。安装完成后，终端会打印 HTTPS 地址、用户名和密码。
@@ -46,6 +46,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.
 在同一面板选择「添加节点 → 远程服务器」，输入公网 IPv4、SSH 端口和 root 密码。核对 SSH 主机指纹后点击「部署并保存」。远程机只运行节点服务，SSH 密码仅用于本次操作。部署完成后，编辑已有订阅，勾选新线路即可。
 
 列表会标出本机、远程节点及出口地区。想确认流量从哪里出去，可以打开节点详情查看出口 IP、网络名称、ASN 和反向域名。面板通过节点线路查询 Ping0 免费接口并缓存结果，点击「重新检测」可刷新。
+
+### 按节点调整 REALITY
+
+勾选 VLESS + REALITY 后可展开「REALITY 高级设置」。默认目标是 `www.cloudflare.com`，另提供上游文档举例的 `dl.google.com`，也可以输入自选域名。保存前可从节点测试目标的 TLS 1.3、证书及 HTTP/2；远程测试需要验证 SSH 主机并允许 TCP 转发。保存后在节点详情点击「测试已保存的 REALITY 线路」，面板会通过该协议访问 Ping0 验证连接。测试结果只代表本次连接和测量位置。[REALITY 上游文档](https://github.com/XTLS/REALITY)
+
+节点默认监听 TCP 30444，可改为 1024–65535 中的空闲端口。远程节点也可选空闲的 443。本机 443 留给管理面板。改端口后需放行相应的入站 TCP 并刷新原订阅。目标网站端口固定为 443。
 
 ## 支持的系统
 

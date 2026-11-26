@@ -86,6 +86,9 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 UNIT
+if [[ ${LOW_PORT:-false} == true ]]; then
+  echo 'AmbientCapabilities=CAP_NET_BIND_SERVICE' >> "$scratch/unit"
+fi
 # Use the same runtime paths on both generations of systemd.
 . /etc/os-release
 runtime=/run/credentials/easynodedeck-node.service

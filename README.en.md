@@ -32,7 +32,7 @@ Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. A
 **1. Install the panel.** Run this command on the VPS.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.4.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.5.0/install.sh)
 ```
 
 Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.
@@ -46,6 +46,12 @@ Press Enter if the suggested public IP is correct, or enter a domain that alread
 Choose **Add node → Remote server** in the same panel. Enter its public IPv4 address, SSH port and root password. Verify the SSH host fingerprint and choose **Deploy and save**. The remote machine runs only the node service. Its SSH password is used for this operation only. Once deployment finishes, edit your existing subscription to include the new connections.
 
 The node list identifies the panel host, remote nodes and their egress regions. Open a node to see its egress IP, network name, ASN and reverse DNS. The panel queries the free Ping0 endpoint through the node and caches the result. Choose **Check again** for a fresh reading.
+
+### Per-node REALITY settings
+
+Select VLESS + REALITY and expand **Advanced REALITY settings**. Keep the default `www.cloudflare.com`, choose the upstream example `dl.google.com`, or enter a custom hostname. Test TLS 1.3, certificate validation and HTTP/2 from the node before saving. Remote target checks require verified SSH access with TCP forwarding. Once saved, **Test saved REALITY connection** in the node details connects to Ping0 through that protocol. Results describe that path at the time of the test. [REALITY documentation](https://github.com/XTLS/REALITY)
+
+The listener defaults to TCP 30444 and accepts an available port from 1024–65535. Remote nodes can also use an available 443. Port 443 on the panel host is reserved for the panel. Allow the new inbound TCP port and refresh the subscription after changing it. The handshake target always uses port 443.
 
 ## Supported systems
 

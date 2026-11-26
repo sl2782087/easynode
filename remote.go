@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -162,7 +163,7 @@ func (a *App) manageRemote(path string, in input) (object, error) {
 		_, fp, err := connectRemote(in, true)
 		return object{"fingerprint": fp}, err
 	}
-	if path != "remote/save" && path != "remote/delete" {
+	if path != "remote/save" && path != "remote/delete" && path != "remote/target" {
 		return nil, errors.New("Unknown remote operation")
 	}
 	if in.Password == "" || in.Fingerprint == "" {
@@ -202,7 +203,18 @@ func (a *App) manageRemote(path string, in input) (object, error) {
 			lines = append(lines, p)
 		}
 		slices.Sort(lines)
-	} else if remote.ID == "" {
+		if remote.ID == "" {
+			remote.Ports = [3]int{30443, 30444, 30445}
+			remote.SNI = a.sni
+		}
+		if in.Reality != nil && slices.Contains(lines, 1) {
+			settings, err := in.Reality.validate(lines, remote.Ports[0], in.Port)
+			if err != nil {
+				return nil, err
+			}
+			remote.SNI, remote.Ports[1] = settings.Target, settings.Port
+		}
+	} else if path == "remote/delete" && remote.ID == "" {
 		return nil, errors.New("Unknown remote node")
 	}
 	client, fp, err := connectRemote(in, false)
@@ -210,6 +222,15 @@ func (a *App) manageRemote(path string, in input) (object, error) {
 		return nil, err
 	}
 	defer client.Close()
+	if path == "remote/target" {
+		if in.Reality == nil {
+			return nil, errors.New("Missing target")
+		}
+		if err := checkTarget(context.Background(), in.Reality.Target, client.DialContext); err != nil {
+			return nil, err
+		}
+		return object{"ok": true}, nil
+	}
 	if path == "remote/delete" {
 		_, err = remoteScript(client, `set -eu
 test -s /etc/easynodedeck-node/identity.json
@@ -244,8 +265,6 @@ if test -f /etc/systemd/system/easynodedeck-node-renew.timer; then systemctl dis
 		n.Lines = lines
 		if remote.ID == "" {
 			remote.ID = random(12)
-			remote.Ports = [3]int{30443, 30444, 30445}
-			remote.SNI = a.sni
 		}
 		remote.Host, remote.Port, remote.Fingerprint, remote.Node = in.Host, in.Port, fp, n
 		endpoint := App{ports: remote.Ports, sni: remote.SNI, cert: "/run/credentials/easynodedeck-node.service/cert.pem", key: "/run/credentials/easynodedeck-node.service/key.pem"}
@@ -255,7 +274,7 @@ if test -f /etc/systemd/system/easynodedeck-node-renew.timer; then systemctl dis
 		}
 		config, _ := json.Marshal(object{"log": object{"level": "error"}, "inbounds": inbounds, "outbounds": []object{{"type": "direct", "tag": "direct"}}})
 		// Host is validated as IPv4. The other two parameters contain only base64 and a boolean.
-		arguments := fmt.Sprintf("NODE_HOST=%s\nWITH_TLS=%t\nNODE_CONFIG='%s'\n", in.Host, slices.Contains(lines, 2), base64.StdEncoding.EncodeToString(config))
+		arguments := fmt.Sprintf("LOW_PORT=%t\nNODE_HOST=%s\nWITH_TLS=%t\nNODE_CONFIG='%s'\n", slices.Contains(lines, 1) && remote.Ports[1] == 443, in.Host, slices.Contains(lines, 2), base64.StdEncoding.EncodeToString(config))
 		if _, err = remoteScript(client, arguments+nodeInstaller); err != nil {
 			return nil, err
 		}
@@ -269,7 +288,7 @@ if test -f /etc/systemd/system/easynodedeck-node-renew.timer; then systemctl dis
 	if path == "remote/delete" {
 		state.Remotes = slices.Delete(state.Remotes, index, index+1)
 	} else if index >= 0 {
-		if prev := state.Remotes[index].Node; prev.UUID == remote.Node.UUID && slices.Equal(prev.Lines, remote.Node.Lines) {
+		if prev := state.Remotes[index].Node; state.Remotes[index].SNI == remote.SNI && state.Remotes[index].Ports == remote.Ports && prev.UUID == remote.Node.UUID && slices.Equal(prev.Lines, remote.Node.Lines) {
 			remote.Node.Network = prev.Network
 		}
 		state.Remotes[index] = remote

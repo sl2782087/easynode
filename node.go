@@ -26,6 +26,7 @@ var protocols = []string{"Shadowsocks", "VLESS + REALITY", "Hysteria 2"}
 const cipherName = "chacha20-ietf-poly1305"
 
 type Node struct {
+	Reality                              RealitySettings
 	Network                              *NetworkInfo `json:",omitempty"`
 	Name                                 string
 	Lines                                []int
@@ -125,7 +126,7 @@ func (a *App) subscription(s Subscription, clash bool) string {
 			}
 		}
 	}
-	appendNode(a, "local", a.state.Node)
+	appendNode(a.localEndpoint(a.state.Node), "local", a.state.Node)
 	for _, remote := range a.state.Remotes {
 		endpoint := App{host: remote.Host, ports: remote.Ports, sni: remote.SNI}
 		appendNode(&endpoint, remote.ID, &remote.Node)
@@ -196,9 +197,10 @@ func (a *App) apply(n *Node) error {
 		}
 		return nil
 	}
+	endpoint := a.localEndpoint(n)
 	var ins []object
 	for _, p := range n.Lines {
-		ins = append(ins, a.inbound(n, p))
+		ins = append(ins, endpoint.inbound(n, p))
 	}
 	data, err := json.Marshal(object{"log": object{"level": "error"}, "inbounds": ins, "outbounds": []object{{"type": "direct", "tag": "direct"}}})
 	if err != nil {

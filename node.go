@@ -77,7 +77,7 @@ func (a *App) inbound(n *Node, p int) object {
 func (a *App) link(n *Node, p int) (object, string) {
 	port := a.ports[p]
 	addr := net.JoinHostPort(a.host, strconv.Itoa(port))
-	name := n.Name + " · " + protocols[p]
+	name := n.Name + " · 本机 · " + protocols[p]
 	label := "#" + url.PathEscape(name)
 	m := object{"name": name, "server": a.host, "port": port, "udp": true}
 	switch p {

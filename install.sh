@@ -84,9 +84,9 @@ if [[ ! -f "$state/state.json" ]]; then
   password=${password:-$(openssl rand -hex 18)}
   [[ ${#password} -ge 8 && ${#password} -le 1024 ]] || { echo 'Password must contain 8–1024 bytes.' >&2; exit 1; }
 fi
-release=https://github.com/sl2782087/easynodedeck/releases/download/v0.6.1
+release=https://github.com/sl2782087/easynode/releases/download/v0.6.2
 if [[ -z ${DECK_BINARY:-} ]]; then
-  asset=easynodedeck-linux-$arch
+  asset=easynode-linux-$arch
   curl -fsSL --retry 2 "$release/$asset" -o "$scratch/$asset"
   curl -fsSL --retry 2 "$release/SHA256SUMS" -o "$scratch/sums"
   (cd "$scratch"; awk -v n="$asset" '$2==n' sums | sha256sum -c -)

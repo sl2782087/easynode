@@ -1,4 +1,4 @@
-module github.com/sl2782087/easynodedeck
+module github.com/sl2782087/easynode
 
 go 1.26.0
 

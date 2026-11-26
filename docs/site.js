@@ -17,7 +17,7 @@ function setLanguage() {
   document.title = english ? "EasyNode · Self-hosted node management" : "EasyNode 易节点 · 自托管节点管理面板";
   language.textContent = english ? "中文" : "EN";
   language.setAttribute("aria-label", english ? "切换为中文" : "Switch to English");
-  document.querySelector(".doc").href = "https://github.com/sl2782087/easynodedeck/blob/main/" + (english ? "README.en.md" : "README.md");
+  document.querySelector(".doc").href = "https://github.com/sl2782087/easynode/blob/main/" + (english ? "README.en.md" : "README.md");
   byId("ports").href = document.querySelector(".doc").href + (english ? "#port-reference" : "#端口清单");
   const screenshot = byId("screenshot");
   screenshot.src = "./assets/panel-preview" + (english ? "-en" : "") + ".webp";

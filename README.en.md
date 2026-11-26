@@ -4,13 +4,13 @@
 
 [Website](https://easynode.cc.cd/?lang=en) · [简体中文](README.md) · English
 
-**Turn your VPS into a proxy node and use one subscription on your phone and computer.**
+**Install the panel and sing-box with one command, create a node in your browser and import the resulting subscription directly on your phone or computer.**
 
-EasyNode is for people who run their own proxies on one or a few Linux servers. Setting up a second VPS by hand usually means another SSH session, another set of protocol configs, and another round of importing links on every device. With EasyNode, you install a panel on the first VPS. That machine can serve as your first node, too.
+EasyNode is for people who want to run proxy nodes on their own Linux servers. Your first VPS can host both the panel and a node. Start with a public IPv4 address and the required ports open. A domain is optional.
 
-- **Start with a public IPv4 address.** A domain is optional. The installer handles dependencies and HTTPS certificates and can generate your admin credentials.
-- **Add the next server from your browser.** Enter its SSH details, verify the host key and pick Shadowsocks, VLESS + REALITY or Hysteria 2. The panel installs the node and reuses a matching configuration on repeat deployments.
-- **Import once per device.** Group connections from several servers under one subscription URL. When you change that selection, refresh the same subscription in your client.
+- **Ready out of the box.** The installer sets up dependencies and HTTPS and installs sing-box, the software that runs your nodes. It reuses a compatible sing-box 1.13.x installation found on your system. Leave the account prompts blank to generate credentials. The installer prints your sign-in URL when it finishes.
+- **Choose protocols in your browser.** Use the panel host or connect another VPS over SSH. Select Shadowsocks, VLESS + REALITY or Hysteria 2. The panel writes the configuration and starts the connections.
+- **Import the subscription directly.** Select the connections you want and create a subscription. Paste its URL into Clash Verge Rev or scan the QR code in Shadowrocket on your iPhone. When you add or remove connections, refresh the same subscription in your client.
 
 [Quick start](#quick-start) · [Supported systems](#supported-systems)
 
@@ -32,7 +32,7 @@ Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. A
 **1. Install the panel.** Run this command on the VPS.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynodedeck/v0.6.1/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynode/v0.6.2/install.sh)
 ```
 
 Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.
@@ -112,6 +112,6 @@ The panel runs as a dedicated system user. The Go binary embeds the web UI and s
 
 ## Contributing
 
-We welcome [issues](https://github.com/sl2782087/easynodedeck/issues) in English or Chinese about installation, node management and client compatibility. For compatibility reports, include the operating system, client version and sanitized reproduction steps. Keep SSH credentials, private keys and active subscription URLs private.
+We welcome [issues](https://github.com/sl2782087/easynode/issues) in English or Chinese about installation, node management and client compatibility. For compatibility reports, include the operating system, client version and sanitized reproduction steps. Keep SSH credentials, private keys and active subscription URLs private.
 
 Released under the [MIT License](LICENSE).

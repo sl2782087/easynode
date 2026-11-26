@@ -28,7 +28,7 @@ const isSubs = () => location.hash === "#subscriptions";
 const allLines = () => nodes.flatMap(n=>n.lines.map(p=>({key:n.id+"/"+p,label:n.name+" · "+protocols[p]})));
 const live = location.protocol !== "file:";
 const subUrl = sub => (live ? location.origin : "https://demo.invalid")+"/s/"+sub.id;
-let signedIn=false;
+let signedIn=live?null:false;
 async function request(path, data) {
   const options=data ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)} : {};
   const res=await fetch("/api/"+path,options);
@@ -339,7 +339,21 @@ $("list").onclick=event=>{
   if(isSubs()) showSub(subs.find(s=>s.id===id));
   else showNode(nodes.find(n=>n.id===id));
 };
-window.addEventListener("hashchange",()=>{if(live&&!signedIn){loginForm();return;}$("dialog").close();$("search").value="";renderPage();});
+window.addEventListener("hashchange",()=>{if(live && signedIn!==true){if(signedIn===false) loginForm();return;}$("dialog").close();$("search").value="";renderPage();});
 if(live){nodes.length=subs.length=0;}
 renderPage();
-if(live) request("state").then(renderList).catch(()=>loginForm());
+async function restoreSession() {
+  try {
+    await request("state");
+  } catch {
+    if(signedIn===false) return; // A 401 already opened the sign-in form.
+    dialog(t("暂时无法加载面板","Panel unavailable"),
+      '<button class="primary" id="retry-state">'+t("重新加载","Try again")+'</button>');
+    $("retry-state").onclick=restoreSession;
+    return;
+  }
+  $("close").hidden=false;
+  $("dialog").close();
+  renderPage();
+}
+if(live) restoreSession();

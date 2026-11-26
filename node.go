@@ -37,6 +37,7 @@ type Subscription struct {
 	Lines []string `json:"lines"`
 }
 type State struct {
+	Sessions         map[string]time.Time `json:",omitempty"`
 	User, Salt, Hash string
 	Node             *Node
 	Subs             []Subscription

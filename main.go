@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -33,7 +34,6 @@ type App struct {
 	ports                                     [3]int
 	state                                     State
 	core                                      *core
-	sessions                                  map[string]time.Time
 	failures                                  map[string]int
 	reset                                     time.Time
 	remoteDeploy                              sync.Mutex
@@ -65,7 +65,7 @@ func (a *App) save(s State) error {
 	return e
 }
 func main() {
-	a := &App{dir: env("STATE_DIRECTORY", "/var/lib/easynodedeck"), origin: os.Getenv("PUBLIC_URL"), binary: env("CORE_PATH", "/usr/bin/sing-box"), sni: env("REALITY_SNI", "www.cloudflare.com"), sessions: map[string]time.Time{}, failures: map[string]int{}}
+	a := &App{dir: env("STATE_DIRECTORY", "/var/lib/easynodedeck"), origin: os.Getenv("PUBLIC_URL"), binary: env("CORE_PATH", "/usr/bin/sing-box"), sni: env("REALITY_SNI", "www.cloudflare.com"), failures: map[string]int{}}
 	if len(os.Args) == 2 && os.Args[1] == "init" {
 		if _, e := os.Stat(filepath.Join(a.dir, "state.json")); !os.IsNotExist(e) {
 			log.Fatal("state already exists or inaccessible")
@@ -166,16 +166,35 @@ type input struct {
 func validName(s string) bool {
 	return strings.TrimSpace(s) != "" && len(s) <= 180 && !strings.ContainsAny(s, "\r\n\x00")
 }
-func (a *App) issue(w http.ResponseWriter) {
+
+const sessionLifetime = 12 * time.Hour
+
+func sessionKey(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func sessionCookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{Name: "__Host-deck", Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: maxAge}
+}
+
+// Store only token digests. Publish the cookie after the state write succeeds.
+func (a *App) issue(w http.ResponseWriter, s State) error {
 	now := time.Now()
-	for k, v := range a.sessions {
-		if !v.After(now) {
-			delete(a.sessions, k)
+	active := make(map[string]time.Time, len(s.Sessions)+1)
+	for k, expiry := range s.Sessions {
+		if expiry.After(now) {
+			active[k] = expiry
 		}
 	}
-	id := random(32)
-	a.sessions[id] = now.Add(12 * time.Hour)
-	http.SetCookie(w, &http.Cookie{Name: "__Host-deck", Value: id, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 43200})
+	token := random(32)
+	active[sessionKey(token)] = now.Add(sessionLifetime)
+	s.Sessions = active
+	if err := a.save(s); err != nil {
+		return err
+	}
+	http.SetCookie(w, sessionCookie(token, int(sessionLifetime.Seconds())))
+	return nil
 }
 func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/")
@@ -196,7 +215,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	a.Lock()
 	defer a.Unlock()
 	cookie, _ := r.Cookie("__Host-deck")
-	authed := cookie != nil && a.sessions[cookie.Value].After(time.Now())
+	authed := cookie != nil && a.state.Sessions[sessionKey(cookie.Value)].After(time.Now())
 	if path == "login" {
 		if time.Now().After(a.reset) {
 			a.failures = map[string]int{}
@@ -213,13 +232,23 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		delete(a.failures, ip)
-		a.issue(w)
+		if err := a.issue(w, a.state); err != nil {
+			http.Error(w, "Could not save session", 500)
+			return
+		}
 	} else if !authed {
 		http.Error(w, "Sign in", 401)
 		return
 	}
 	if path == "logout" {
-		delete(a.sessions, cookie.Value)
+		s := a.state
+		s.Sessions = maps.Clone(s.Sessions)
+		delete(s.Sessions, sessionKey(cookie.Value))
+		if err := a.save(s); err != nil {
+			http.Error(w, "Could not revoke session", 500)
+			return
+		}
+		http.SetCookie(w, sessionCookie("", -1))
 		w.WriteHeader(204)
 		return
 	}
@@ -255,14 +284,20 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+	} else if path == "account" {
+		s, err := a.updatedAccount(in)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if err = a.issue(w, s); err != nil {
+			http.Error(w, "Could not save account", 500)
+			return
+		}
 	} else if path != "state" && path != "login" {
 		if err := a.change(path, in); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
-		}
-		if path == "account" {
-			clear(a.sessions)
-			a.issue(w)
 		}
 	}
 	if path == "node" && a.state.Node.Network == nil {
@@ -298,28 +333,33 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 func (a *App) password(p string) bool {
 	return subtle.ConstantTimeCompare([]byte(a.state.Hash), []byte(digest(p, a.state.Salt))) == 1
 }
+func (a *App) updatedAccount(in input) (State, error) {
+	s := a.state
+	if !a.password(in.Current) {
+		return s, errors.New("当前密码不正确 / Incorrect password")
+	}
+	if in.User != "" {
+		if !validName(in.User) {
+			return s, errors.New("Invalid username")
+		}
+		s.User = strings.TrimSpace(in.User)
+	}
+	if in.Password != "" {
+		if len(in.Password) < 8 || len(in.Password) > 1024 {
+			return s, errors.New("Password must contain 8–1024 bytes")
+		}
+		s.Salt = random(16)
+		s.Hash = digest(in.Password, s.Salt)
+	}
+	s.Sessions = nil
+	return s, nil
+}
+
 func (a *App) change(path string, in input) error {
 	s := a.state
 	s.Subs = append([]Subscription{}, s.Subs...)
 	name := strings.TrimSpace(in.Name)
 	switch path {
-	case "account":
-		if !a.password(in.Current) {
-			return errors.New("当前密码不正确 / Incorrect password")
-		}
-		if in.User != "" {
-			if !validName(in.User) {
-				return errors.New("Invalid username")
-			}
-			s.User = strings.TrimSpace(in.User)
-		}
-		if in.Password != "" {
-			if len(in.Password) < 8 || len(in.Password) > 1024 {
-				return errors.New("Password must contain 8–1024 bytes")
-			}
-			s.Salt = random(16)
-			s.Hash = digest(in.Password, s.Salt)
-		}
 	case "node", "node/delete":
 		old := s.Node
 		if path == "node/delete" {

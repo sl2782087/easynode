@@ -384,7 +384,7 @@ func (a *App) api(w http.ResponseWriter, r *http.Request) {
 		nodes = append(nodes, object{"reality": RealitySettings{remote.SNI, remote.Ports[1]}, "id": remote.ID, "name": remote.Node.Name, "host": remote.Host, "port": remote.Port, "user": "root", "local": false, "online": online, "checked": checked, "probe": probe, "fingerprint": remote.Fingerprint, "network": remote.Node.Network, "lines": remote.Node.Lines})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host, "realityDefaults": RealitySettings{a.sni, a.ports[1]}})
+	json.NewEncoder(w).Encode(object{"user": a.state.User, "nodes": nodes, "subs": a.state.Subs, "host": a.host, "publicURL": a.origin, "realityDefaults": RealitySettings{a.sni, a.ports[1]}})
 }
 func (a *App) password(p string) bool {
 	return subtle.ConstantTimeCompare([]byte(a.state.Hash), []byte(digest(p, a.state.Salt))) == 1

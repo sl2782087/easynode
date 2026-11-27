@@ -15,14 +15,24 @@
 <body>
   <header><div class="bar">
     <a href="#nodes" class="brand"><img src="../assets/logo.png" alt="">EasyNode</a>
-    <nav aria-label="Navigation"><a id="nodes-tab" href="#nodes"></a><a id="subs-tab" href="#subscriptions"></a></nav>
+    <nav aria-label="Navigation"><a id="nodes-tab" href="#nodes"></a><a id="subs-tab" href="#subscriptions"></a><a id="domain-tab" href="#domain"></a></nav>
     <div class="utility"><span class="preview" id="preview"></span><button id="language"></button><button id="account" aria-haspopup="dialog"></button></div>
   </div></header>
   <main>
     <div class="page-head"><div><h1 id="title"></h1><p id="intro"></p></div><button class="primary" id="create"></button></div>
-    <section class="overview glass"><div class="overview-inner"><h2 id="summary-title"></h2><div id="stats"></div></div></section>
-    <section class="inventory glass"><div class="inventory-head"><h2 id="list-title"></h2><div class="tools"><label class="search"><span id="search-icon"></span><input type="search" id="search"></label><button id="filter" type="button"></button></div></div>
+    <section id="overview" class="overview glass"><div class="overview-inner"><h2 id="summary-title"></h2><div id="stats"></div></div></section>
+    <section id="inventory" class="inventory glass"><div class="inventory-head"><h2 id="list-title"></h2><div class="tools"><label class="search"><span id="search-icon"></span><input type="search" id="search"></label><button id="filter" type="button"></button></div></div>
       <div id="list"></div><p id="count"></p>
+    </section>
+    <section id="domain-page" class="domain-page glass" hidden aria-labelledby="domain-heading">
+      <div class="domain-address"><small id="address-label"></small><strong id="current-address" dir="ltr"></strong></div>
+      <h2 id="domain-heading"></h2>
+      <form id="domain-form">
+        <label><span id="hostname-label"></span><input class="field" name="hostname" required maxlength="253" placeholder="panel.example.com" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="dns-hint"></label>
+        <small id="dns-hint"></small>
+        <button class="primary" id="domain-submit"></button>
+        <output role="status" id="domain-status"></output>
+      </form>
     </section>
   </main>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="icon-btn" id="close"></button></div><div id="body"></div><output id="form-note" role="status"></output></dialog>

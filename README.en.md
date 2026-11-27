@@ -15,7 +15,7 @@
 | Choose protocols per server | Select any combination of Shadowsocks, VLESS + REALITY and Hysteria 2. The panel generates credentials and writes the configuration. For REALITY, you can also adjust the handshake target and listening port and test the connection. |
 | Connect your devices | Pick connections across servers to create a subscription URL and QR code. Paste the URL into Clash Verge Rev or scan the code in Shadowrocket. The panel serves Clash configuration or a list of node links depending on the client. Refresh the same subscription after changing its connections. |
 | Check a node’s actual egress | Open its details and choose **Check again**. The panel makes a request through one of the node’s connections to report the egress IP, region and network operator, along with available ASN and reverse DNS data and the time of the check. TCP latency is measured from panel to node. |
-| Manage the panel address and account | Start with a public IPv4 address. Later, point a domain at the panel and enter it under **Account**. EasyNode checks DNS, requests a certificate and switches the address. Certificates renew automatically. You can also change your admin username and password here. |
+| Manage the panel address and account | Start with a public IPv4 address. Later, point a domain at the panel and enter it on the **Domain settings** tab. EasyNode checks DNS, requests a certificate and switches the address. Certificates renew automatically. You can also change your admin username and password under **Account**. |
 
 **What runs on the VPS?** The EasyNode Go program serves the web interface, administrator login, deployment and subscriptions. Sing-box runs the selected protocols. Certbot manages certificates, and systemd manages services and renewal timers. Configuration and account data live in local files, so there is no separate database to install. Additional servers run the node service.
 
@@ -39,7 +39,7 @@ Start with a Linux VPS with a public IPv4 address, root access, Bash and curl. A
 **1. Install the panel.** Run this command on the VPS.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynode/v0.6.2/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sl2782087/easynode/v0.6.3/install.sh)
 ```
 
 Press Enter if the suggested public IP is correct, or enter a domain that already points to this server. When installation finishes, the terminal prints the HTTPS URL and your admin credentials.
@@ -50,7 +50,7 @@ Press Enter if the suggested public IP is correct, or enter a domain that alread
 
 ### Connect a domain to your panel
 
-Point the A record directly at the panel VPS. If you publish an AAAA record, point it at the same VPS. Allow public TCP 80 and 443. In **Account → Configure domain**, enter the full hostname and select **Verify and enable HTTPS**. After the browser opens the new address, sign in with your existing account and copy the updated links from **Subscriptions** into your clients. The node list continues to show IP addresses.
+Point the A record directly at the panel VPS. If you publish an AAAA record, point it at the same VPS. Allow public TCP 80 and 443. On the **Domain settings** tab, enter the full hostname and select **Verify and enable HTTPS**. Sign in at the new domain with your existing account. Links and QR codes for existing and new subscriptions use this domain automatically. In clients that already use the old address, replace the link or scan the updated QR code from **Subscriptions**. The node list continues to show IP addresses.
 
 ## Add another VPS
 

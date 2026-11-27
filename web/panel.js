@@ -24,6 +24,7 @@ let en = false;
 let sequence = 0;
 let timer;
 const t = (zh, english) => en ? english : zh;
+const isDomain = () => location.hash === "#domain";
 const isSubs = () => location.hash === "#subscriptions";
 const allLines = () => nodes.flatMap(n=>n.lines.map(p=>({key:n.id+"/"+p,label:n.name+" · "+protocols[p]})));
 const live = location.protocol !== "file:";
@@ -38,7 +39,8 @@ if (!live) {
     if(node.lines[0]!==2) node.network.tcpMillis=[2,24,0,96][index];
   });
 }
-const subUrl = sub => (live ? location.origin : "https://demo.invalid")+"/s/"+sub.id;
+let publicURL=live?location.origin:"https://demo.invalid";
+const subUrl = sub => publicURL+"/s/"+sub.id;
 let realityDefaults={target:"www.cloudflare.com",port:30444};
 let signedIn=live?null:false;
 async function request(path, data) {
@@ -52,6 +54,7 @@ async function request(path, data) {
   const state=await res.json();
   nodes.splice(0,nodes.length,...state.nodes);
   subs.splice(0,subs.length,...state.subs);
+  publicURL=state.publicURL || location.origin;
   demoAccount.username=state.user;
   realityDefaults=state.realityDefaults||realityDefaults;
   signedIn=true;
@@ -65,12 +68,14 @@ async function saveLive(path,data,done) {
 }
 function loginForm(){
   nodes.length=subs.length=0;
+  $("domain-form").reset();
+  $("domain-status").textContent="";
   renderList();
   dialog(t("管理员登录","Administrator sign-in"),'<form id="login"><label>'+t("用户名","Username")+'<input class="field" name="user" required autocomplete="username"></label><label>'+t("密码","Password")+'<input class="field" type="password" name="password" required autocomplete="current-password"></label><button class="primary">'+t("登录","Sign in")+'</button></form>');
   $("close").hidden=true;
   $("login").onsubmit=e=>{
     e.preventDefault();const f=e.currentTarget;
-    saveLive("login",{User:f.user.value,Password:f.password.value},()=>{$("close").hidden=false;$("dialog").close();});
+    saveLive("login",{User:f.user.value,Password:f.password.value},()=>{$("close").hidden=false;$("dialog").close();renderPage();});
   };
 }
 
@@ -99,12 +104,29 @@ function renderPage() {
   $("account").title=accountLabel;
   $("nodes-tab").innerHTML=icon("nodes")+t("节点","Nodes");
   $("subs-tab").innerHTML=icon("link")+t("订阅","Subscriptions");
-  $("nodes-tab").removeAttribute("aria-current");
-  $("subs-tab").removeAttribute("aria-current");
-  $(sub?"subs-tab":"nodes-tab").setAttribute("aria-current","page");
-  $("title").textContent=sub?t("订阅管理","Subscriptions"):t("节点管理","Node management");
+  $("domain-tab").innerHTML=icon("globe")+t("域名配置","Domain settings");
+  const domain=isDomain();
+  const activeTab=domain?"domain-tab":sub?"subs-tab":"nodes-tab";
+  for(const tab of document.querySelectorAll("nav a")){
+    if(tab.id===activeTab) tab.setAttribute("aria-current","page");
+    else tab.removeAttribute("aria-current");
+  }
+  $("create").hidden=$("overview").hidden=$("inventory").hidden=domain;
+  $("domain-page").hidden=!domain;
+  $("title").textContent=domain?t("域名配置","Domain settings"):sub?t("订阅管理","Subscriptions"):t("节点管理","Node management");
   document.title=$("title").textContent+" · EasyNode";
-  $("intro").textContent=sub?t("组合节点线路，管理订阅链接与二维码。","Group connections and manage subscription links and QR codes."):t("管理本机与远程服务器，查看节点状态与线路。","Manage local and remote servers, their status and connections.");
+  $("intro").textContent=domain?t("绑定后，你可以用域名登录面板。已有和新建订阅的链接、二维码都会自动使用这个域名。","Connect a domain to sign in to your panel. Links and QR codes for existing and new subscriptions will automatically use this domain."):sub?t("组合节点线路，管理订阅链接与二维码。","Group connections and manage subscription links and QR codes."):t("管理本机与远程服务器，查看节点状态与线路。","Manage local and remote servers, their status and connections.");
+  $("close").innerHTML=icon("close");
+  $("close").setAttribute("aria-label",t("关闭","Close"));
+  if(domain){
+    $("address-label").textContent=t("当前面板地址","Current panel address");
+    $("current-address").textContent=publicURL;
+    $("domain-heading").textContent=t("绑定域名","Connect a domain");
+    $("hostname-label").textContent=t("完整域名","Full domain name");
+    $("dns-hint").textContent=t("先将域名直接解析到面板服务器，并放行 TCP 80 和 443。如果客户端已导入旧地址，切换后请到「订阅」复制新链接或重新扫码。","Point the domain directly to the panel server and allow TCP ports 80 and 443. If your client already uses the old address, copy the updated link or scan the QR code from Subscriptions after switching.");
+    $("domain-submit").textContent=t("验证并启用 HTTPS","Verify and enable HTTPS");
+    return;
+  }
   $("create").innerHTML=icon("plus")+(sub?t("创建订阅","Create subscription"):t("添加节点","Add node"));
   $("summary-title").textContent=sub?t("订阅概览","Subscription overview"):t("节点概览","Node overview");
   $("list-title").textContent=sub?t("订阅列表","Subscription list"):t("节点列表","Node list");
@@ -115,8 +137,6 @@ function renderPage() {
   configurePicker($("filter"),t("筛选状态","Filter by status"),[
     {value:"",label:t("全部状态","All states")},{value:"up",label:t("在线","Online")},{value:"down",label:t("离线","Offline")}
   ],$("filter").value);
-  $("close").innerHTML=icon("close");
-  $("close").setAttribute("aria-label",t("关闭","Close"));
   renderList();
 }
 function nodeAddress(node) {
@@ -357,51 +377,44 @@ function accountHome() {
       <button class="quiet" id="rename">${t("修改用户名","Change username")}</button></div>
     <div class="account-row"><div><small>${t("登录密码","Password")}</small><strong>••••••••</strong></div>
       <button class="quiet" id="rekey">${t("修改密码","Change password")}</button></div>
-    ${live?`<div class="account-row"><div><small>${t("面板地址","Panel address")}</small><strong>${esc(location.hostname)}</strong></div><button class="quiet" id="edit-domain">${t("配置域名","Configure domain")}</button></div>`:""}
     <small>${live?'<button class="quiet" id="logout">'+t("退出登录","Sign out")+'</button>':t("演示账号仅在当前页面生效，刷新后重置。","This demo account resets when you reload the page.")}</small></div>`);
   if(live) $("logout").onclick=()=>saveLive("logout",{},()=>{signedIn=false;loginForm();});
-  if(live) $("edit-domain").onclick=editDomain;
   $("rename").onclick=()=>editAccount(false);
   $("rekey").onclick=()=>editAccount(true);
 }
-function editDomain() {
-  dialog(t("配置面板域名","Configure panel domain"),`<form id="domain-form">
-    <label>${t("域名","Domain")}<input class="field" name="hostname" required maxlength="253" placeholder="panel.example.com" autocapitalize="none" spellcheck="false"></label>
-    <small>${t("先将域名直接解析到面板 VPS，并放行公网 TCP 80 和 443。切换后，请在客户端更新订阅地址。","Point the domain directly to this VPS and allow public TCP 80 and 443. Update the subscription URL in your client after switching.")}</small>
-    <div class="actions"><button class="quiet" type="button" id="domain-back">${t("返回","Back")}</button><button class="primary">${t("验证并启用 HTTPS","Verify and enable HTTPS")}</button></div>
-    <small role="status" id="domain-status"></small></form>`);
-  $("domain-back").onclick=accountHome;
-  $("domain-form").onsubmit=async event=>{
-    event.preventDefault();
-    const form=event.currentTarget, status=$("domain-status");
-    const fields=[...form.querySelectorAll("input,button")];
-    fields.forEach(el=>el.disabled=true);
-    status.textContent=t("正在校验 DNS 并申请证书…","Checking DNS and requesting a certificate…");
-    try {
-      const res=await fetch("/api/domain",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({Host:form.hostname.value.trim()})});
-      if(res.status===401){signedIn=false;loginForm();return;}
-      if(!res.ok) throw Error((await res.text()).trim());
-      const {url,current}=await res.json();
-      if(current){status.textContent=t("此域名的 HTTPS 已启用。","HTTPS is already active for this domain.");return;}
-      const target=new URL(url);
-      status.textContent=t("证书已签发，正在等待新地址上线…","Certificate issued. Waiting for the new address…");
-      for(let attempt=0;attempt<25;attempt++){
-        if(!form.isConnected) return;
-        await new Promise(resolve=>setTimeout(resolve,1200));
-        const ready=await new Promise(resolve=>{
-          const img=new Image(), end=setTimeout(()=>resolve(false),2000);
-          img.onload=()=>{clearTimeout(end);resolve(true);};
-          img.onerror=()=>{clearTimeout(end);resolve(false);};
-          img.referrerPolicy="no-referrer";
-          img.src=target.origin+"/assets/logo.png?check="+Date.now();
-        });
-        if(ready){location.assign(url);return;}
-      }
-      status.textContent=t("此浏览器暂时无法验证新地址。请检查 DNS 后打开：","This browser could not verify the new address. Check DNS, then open ");
-      const link=document.createElement("a");link.href=url;link.textContent=url;status.append(link);
-    }catch(error){status.textContent=error.message;}
-    finally{fields.forEach(el=>el.disabled=false);}
-  };
+async function configureDomain(event){
+  event.preventDefault();
+  const form=event.currentTarget, status=$("domain-status");
+  if(!live){status.textContent=t("请在已安装的面板中绑定域名。","Open your installed panel to connect a domain.");return;}
+  if(!signedIn){loginForm();return;}
+  const fields=[...form.querySelectorAll("input,button")];
+  fields.forEach(el=>el.disabled=true);
+  status.textContent=t("正在校验 DNS 并申请证书…","Checking DNS and requesting a certificate…");
+  try {
+    const res=await fetch("/api/domain",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({Host:form.hostname.value.trim()})});
+    if(res.status===401){signedIn=false;loginForm();return;}
+    if(!res.ok) throw Error((await res.text()).trim());
+    const {url,current}=await res.json();
+    if(current){status.textContent=t("此域名的 HTTPS 已启用。","HTTPS is already active for this domain.");return;}
+    const target=new URL(url);
+    status.textContent=t("证书已签发，正在等待新地址上线…","Certificate issued. Waiting for the new address…");
+    for(let attempt=0;attempt<25;attempt++){
+      if(!signedIn) return;
+      if(!isDomain()) break;
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      const ready=await new Promise(resolve=>{
+        const img=new Image(), end=setTimeout(()=>resolve(false),2000);
+        img.onload=()=>{clearTimeout(end);resolve(true);};
+        img.onerror=()=>{clearTimeout(end);resolve(false);};
+        img.referrerPolicy="no-referrer";
+        img.src=target.origin+"/assets/logo.png?check="+Date.now();
+      });
+      if(ready && isDomain() && signedIn){location.assign(url);return;}
+    }
+    status.textContent=t("证书已签发，可通过新地址访问面板：","Certificate issued. Open the panel at ");
+    const link=document.createElement("a");link.href=url;link.textContent=url;status.append(link);
+  }catch(error){status.textContent=error.message;}
+  finally{fields.forEach(el=>el.disabled=false);}
 }
 async function previewDigest(value) {
   const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
@@ -445,6 +458,7 @@ function editAccount(password) {
 }
 $("dialog").addEventListener("cancel",e=>{if(live&&!signedIn)e.preventDefault();});
 $("account").onclick=accountHome;
+$("domain-form").onsubmit=configureDomain;
 $("create").onclick=()=>isSubs()?editSub():editNode();
 $("close").onclick=()=>$("dialog").close();
 $("dialog").addEventListener("close",()=>{if(!$("dialog").open){closePicker();$("body").replaceChildren();}});

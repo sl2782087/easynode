@@ -29,6 +29,14 @@ nav a[aria-current] {color:white;border-color:#dce7f5}
 .utility #account:hover {background:#ffffff16}
 .preview {gap:7px;font-size:12px;color:var(--muted)}
 .preview:before {content:"";width:6px;height:6px;border-radius:50%;background:#9bb5d4}
+.domain-page {max-width:720px;margin-top:28px;padding:clamp(20px,4vw,32px)}
+.domain-address {border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px}
+.domain-address strong {display:block;font-size:19px;font-weight:500;overflow-wrap:anywhere}
+.domain-page form {margin-top:16px}
+#domain-submit {justify-self:start}
+#domain-status {font-size:14px;overflow-wrap:anywhere}
+#domain-status:empty {display:none}
+#domain-status a {text-decoration:underline}
 main {padding:40px 0 56px}
 .page-head,.inventory-head,.dialog-top {display:flex;justify-content:space-between;align-items:center;gap:16px}
 h1,h2,p {margin:0}
@@ -144,3 +152,8 @@ dd {margin:0;text-align:right;overflow-wrap:anywhere}
 #reality-options summary {display:flex;align-items:center;justify-content:space-between;list-style:none}
 #reality-options summary::-webkit-details-marker {display:none}
 @media (pointer:coarse) {.picker,.picker-menu button,.choice {min-height:44px}}
+
+@media(min-width:621px) and (max-width:960px) {.bar {gap:20px}.bar nav {gap:14px}.preview {display:none}}
+@media(max-width:400px) {nav {gap:12px}nav a {gap:4px}}
+
+@media(max-width:400px) {:lang(en) nav .ico {display:none}}
